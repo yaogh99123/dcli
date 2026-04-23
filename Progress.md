@@ -1,7 +1,8 @@
 # Dcli 重构进度记录 (Progress.md)
 
 ## 当前重点
-- 已将 Dcli 从 TUI (Terminal UI) 迁移为纯 CLI (Command Line Interface) 交互模式。
+- 已完成从 TUI 到纯 CLI 的核心重写。
+- 正在优化项目文档，建立全新的品牌视觉。
 - [x] **项目重命名**: 将项目关键字从 `lazydocker` 全面重命名为 `dcli`。
 - [x] **全量文件探测**: 修改 `main.go` 探测逻辑，支持自动加载并合并所有 `docker-compose*.yml` 文件。
 - [x] **外部服务兼容 (Docker Fallback)**:
@@ -15,6 +16,7 @@
 3. **交互式引导**: 对非本地服务提供友好的提示，告知为何某些操作（如查看配置）不可用。
 
 ## 已完成事项
+- [x] 重新编写 README.md (英文版) 和 README_cn.md (中文版)。
 - [x] 分析 `devos` 模式与 GUI 的耦合度。
 - [x] 修改 `pkg/app/app.go` 解耦 GUI 依赖。
 - [x] 修改 `main.go` 简化入口点并增强文件探测。
