@@ -65,6 +65,10 @@ Icon
 
 # Output of the go coverage tool
 *.out
+coverage.txt
+
+# Executables
+dcli
 
 # Go workspace file
 go.work.sum

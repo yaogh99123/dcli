@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/jesseduffield/dcli/pkg/config"
+	"github.com/yaogh99123/dcli/pkg/config"
 	"github.com/sirupsen/logrus"
 )
 

@@ -105,7 +105,7 @@ You can view your current default configuration and make adjustments by running 
 
 ## 📜 Credits
 
-The birth of this project was inspired by [lazydocker](https://github.com/yaogh99123/lazydocker). We have refactored and optimized its powerful Docker management logic into a CLI-focused tool for heavy terminal users.
+The birth of this project was inspired by [lazydocker](https://github.com/jesseduffield/lazydocker). We have refactored and optimized its powerful Docker management logic into a CLI-focused tool for heavy terminal users.
 
 ---
 

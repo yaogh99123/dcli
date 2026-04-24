@@ -4,11 +4,11 @@ import (
 	"io"
 	"strings"
 
-	"github.com/jesseduffield/dcli/pkg/commands"
-	"github.com/jesseduffield/dcli/pkg/config"
-	"github.com/jesseduffield/dcli/pkg/i18n"
-	"github.com/jesseduffield/dcli/pkg/log"
-	"github.com/jesseduffield/dcli/pkg/utils"
+	"github.com/yaogh99123/dcli/pkg/commands"
+	"github.com/yaogh99123/dcli/pkg/config"
+	"github.com/yaogh99123/dcli/pkg/i18n"
+	"github.com/yaogh99123/dcli/pkg/log"
+	"github.com/yaogh99123/dcli/pkg/utils"
 	"github.com/sirupsen/logrus"
 )
 

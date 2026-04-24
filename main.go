@@ -12,9 +12,9 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/integrii/flaggy"
 	"path/filepath"
-	"github.com/jesseduffield/dcli/pkg/app"
-	"github.com/jesseduffield/dcli/pkg/config"
-	"github.com/jesseduffield/dcli/pkg/utils"
+	"github.com/yaogh99123/dcli/pkg/app"
+	"github.com/yaogh99123/dcli/pkg/config"
+	"github.com/yaogh99123/dcli/pkg/utils"
 	"github.com/jesseduffield/yaml"
 	"github.com/samber/lo"
 )
@@ -50,7 +50,7 @@ func main() {
 
 	flaggy.SetName("dcli")
 	flaggy.SetDescription("The lazier way to manage everything docker")
-	flaggy.DefaultParser.AdditionalHelpPrepend = "https://github.com/jesseduffield/dcli"
+	flaggy.DefaultParser.AdditionalHelpPrepend = "https://github.com/yaogh99123/dcli"
 
 	flaggy.Bool(&configFlag, "c", "config", "Print the current default config")
 	flaggy.Bool(&debuggingFlag, "d", "debug", "Enable debug logging (outputs to development.log)")

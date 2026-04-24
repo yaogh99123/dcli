@@ -3,7 +3,7 @@
 ## 当前重点
 - 已完成从 TUI 到纯 CLI 的核心重写。
 - 正在优化项目文档，建立全新的品牌视觉。
-- [x] **项目重命名**: 将项目关键字从 `lazydocker` 全面重命名为 `dcli`。
+- [x] **所有权变更**: 已将 `jesseduffield/dcli` 统一重命名为 `yaogh99123/dcli`。
 - [x] **全量文件探测**: 修改 `main.go` 探测逻辑，支持自动加载并合并所有 `docker-compose*.yml` 文件。
 - [x] **外部服务兼容 (Docker Fallback)**:
     - 针对非本地服务（`IsLocal=false`），自动回退到原生 `docker` 命令进行管理。

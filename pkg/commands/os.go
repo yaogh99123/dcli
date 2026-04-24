@@ -14,8 +14,8 @@ import (
 	"github.com/go-errors/errors"
 
 	"github.com/jesseduffield/kill"
-	"github.com/jesseduffield/dcli/pkg/config"
-	"github.com/jesseduffield/dcli/pkg/utils"
+	"github.com/yaogh99123/dcli/pkg/config"
+	"github.com/yaogh99123/dcli/pkg/utils"
 	"github.com/mgutz/str"
 	"github.com/sirupsen/logrus"
 )

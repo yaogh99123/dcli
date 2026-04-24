@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jesseduffield/dcli/pkg/i18n"
+	"github.com/yaogh99123/dcli/pkg/i18n"
 	"github.com/sasha-s/go-deadlock"
 	"github.com/sirupsen/logrus"
 )

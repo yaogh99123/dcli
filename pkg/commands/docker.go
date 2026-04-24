@@ -21,10 +21,10 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/imdario/mergo"
-	"github.com/jesseduffield/dcli/pkg/commands/ssh"
-	"github.com/jesseduffield/dcli/pkg/config"
-	"github.com/jesseduffield/dcli/pkg/i18n"
-	"github.com/jesseduffield/dcli/pkg/utils"
+	"github.com/yaogh99123/dcli/pkg/commands/ssh"
+	"github.com/yaogh99123/dcli/pkg/config"
+	"github.com/yaogh99123/dcli/pkg/i18n"
+	"github.com/yaogh99123/dcli/pkg/utils"
 	"github.com/sasha-s/go-deadlock"
 	"github.com/sirupsen/logrus"
 )
@@ -133,7 +133,7 @@ func (c *DockerCommand) NewCommandObject(obj CommandObject) CommandObject {
 // negotiation even when WithAPIVersionNegotiation() is specified.
 // Instead, we explicitly configure only what we need, and rely on proper
 // API version negotiation to support older Docker daemons.
-// See https://github.com/jesseduffield/dcli/issues/715
+// See https://github.com/yaogh99123/dcli/issues/715
 func newDockerClient(dockerHost string) (*client.Client, error) {
 	return client.NewClientWithOpts(
 		client.WithTLSClientConfigFromEnv(),

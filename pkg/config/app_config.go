@@ -480,7 +480,7 @@ func configDir(projectName string) string {
 	}
 
 	// 3. 第三优先级：系统默认路径 (Library/Application Support 等)
-	legacyConfigDirectory := configDirForVendor("jesseduffield", projectName)
+	legacyConfigDirectory := configDirForVendor("yaogh99123", projectName)
 	if _, err := os.Stat(legacyConfigDirectory); !os.IsNotExist(err) {
 		return legacyConfigDirectory
 	}

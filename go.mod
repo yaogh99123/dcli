@@ -1,4 +1,4 @@
-module github.com/jesseduffield/dcli
+module github.com/yaogh99123/dcli
 
 go 1.24
 

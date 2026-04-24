@@ -3,8 +3,8 @@ package commands
 import (
 	"io"
 
-	"github.com/jesseduffield/dcli/pkg/config"
-	"github.com/jesseduffield/dcli/pkg/i18n"
+	"github.com/yaogh99123/dcli/pkg/config"
+	"github.com/yaogh99123/dcli/pkg/i18n"
 	"github.com/sirupsen/logrus"
 )
 

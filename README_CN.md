@@ -108,7 +108,7 @@ dcli
 
 ## 📜 致谢 / Credits
 
-本项目的诞生离不开 [lazydocker](https://github.com/yaogh99123/lazydocker) 的启发。我们在其强大的 Docker 管理逻辑基础上，针对重度终端用户进行了 CLI 化的重构与优化。
+本项目的诞生离不开 [lazydocker](https://github.com/jesseduffield/lazydocker) 的启发。我们在其强大的 Docker 管理逻辑基础上，针对重度终端用户进行了 CLI 化的重构与优化。
 
 ---
 
