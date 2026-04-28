@@ -218,6 +218,22 @@ type TranslationSet struct {
 	MenuVolumeManagement  string
 	MenuImageManagement   string
 	MenuRepairService     string
+	// Image Management
+	SearchImageTitle        string
+	RunImage                string
+	InputContainerName      string
+	RunImageSuccess         string
+	RunImageFailed          string
+	SelectActionForImage    string
+	ConfirmDeleteImage      string
+	DeletingImage           string
+	InvalidIndex            string
+	DangerDeleteAllImages   string
+	CleaningAllUnusedImages string
+	PullImage               string
+	DeleteSpecifiedImage    string
+	DeleteAllImages         string
+	DetectingShell          string
 }
 
 func englishSet() TranslationSet {
@@ -443,5 +459,22 @@ func englishSet() TranslationSet {
 		MenuVolumeManagement:  "Volume Management",
 		MenuImageManagement:   "Image Management",
 		MenuRepairService:     "Repair Service (All/Specified) - Rebuild Image",
+
+		// Image Management
+		SearchImageTitle:        "Search all images (Supports name search, Esc to return)",
+		RunImage:                "Run Image",
+		InputContainerName:      "Input container name (optional, press Enter for default): ",
+		RunImageSuccess:         "Container %s is running",
+		RunImageFailed:          "Run image failed: %v",
+		SelectActionForImage:    "Select action for image [%s] (Esc to return)",
+		ConfirmDeleteImage:      "Are you sure you want to delete image %s (ID: %s)? (y/n): ",
+		DeletingImage:           "Deleting image...",
+		InvalidIndex:            "Invalid index",
+		DangerDeleteAllImages:   "DANGER: This will delete all unused images! Continue? (y/n): ",
+		CleaningAllUnusedImages: "Cleaning all unused images...",
+		PullImage:               "Pull Image",
+		DeleteSpecifiedImage:    "Delete Specified Image",
+		DeleteAllImages:         "Delete All Images",
+		DetectingShell:          "Detecting available shell...",
 	}
 }

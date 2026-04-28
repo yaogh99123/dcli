@@ -368,7 +368,7 @@ func (app *App) handleCLIInput(choice string, services []*commands.Service, allS
 	case "17":
 		manager.RunVolumeMenu(app.DockerCommand, app.ReadInput)
 	case "18":
-		manager.RunImageMenu(app.DockerCommand, app.ReadInput, app.runInteractiveSubprocess)
+		manager.RunImageMenu(app.DockerCommand, app.ReadInput, app.runInteractiveSubprocess, app.runFzfSelect, app.parseFzfResult)
 	case "100":
 		app.doServiceAction(app.Tr.Fix, services, true, false, func(s *commands.Service) error {
 			if !s.IsLocal {

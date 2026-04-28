@@ -214,5 +214,22 @@ func chineseSet() TranslationSet {
 		MenuVolumeManagement:  "卷管理",
 		MenuImageManagement:   "镜像管理",
 		MenuRepairService:     "修复服务 (所有/指定) - 重新构建镜像",
+
+		// 镜像管理相关
+		SearchImageTitle:        "搜索所有镜像 (支持名称搜索, Esc 返回)",
+		RunImage:                "运行镜像",
+		InputContainerName:      "输入容器名称 (可选，直接回车使用默认): ",
+		RunImageSuccess:         "容器 %s 已启动",
+		RunImageFailed:          "运行镜像失败: %v",
+		SelectActionForImage:    "选择对镜像 [%s] 执行的操作 (Esc 返回)",
+		ConfirmDeleteImage:      "确定要删除镜像 %s (ID: %s) 吗? (y/n): ",
+		DeletingImage:           "正在删除镜像...",
+		InvalidIndex:            "无效的索引",
+		DangerDeleteAllImages:   "危险: 这将删除所有未被使用的镜像! 是否继续? (y/n): ",
+		CleaningAllUnusedImages: "正在清理所有未使用镜像...",
+		PullImage:               "拉取镜像",
+		DeleteSpecifiedImage:    "删除指定镜像",
+		DeleteAllImages:         "删除所有镜像",
+		DetectingShell:          "正在检测可用 Shell...",
 	}
 }

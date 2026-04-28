@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"os/exec"
 	"strings"
 
 	"github.com/docker/docker/api/types/filters"
@@ -150,4 +151,24 @@ func (i *Image) GetDisplaySize() string {
 // GetDisplayContentSize returns the virtual size of the image
 func (i *Image) GetDisplayContentSize() string {
 	return utils.FormatBinaryBytes(int(i.Image.VirtualSize))
+}
+
+// Run runs the image with a specific name
+func (i *Image) Run(name string) error {
+	command := "docker run -d"
+	if name != "" {
+		command += " --name " + i.OSCommand.Quote(name)
+	}
+	command += " " + i.ID
+	return i.OSCommand.RunCommand(command)
+}
+
+// GetInteractiveRunCmd returns a command to run the image interactively
+func (i *Image) GetInteractiveRunCmd(name string, shell string) *exec.Cmd {
+	args := []string{"run", "-it", "--rm"}
+	if name != "" {
+		args = append(args, "--name", name)
+	}
+	args = append(args, i.ID, shell)
+	return i.OSCommand.NewCmd("docker", args...)
 }
