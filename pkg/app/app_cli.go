@@ -46,15 +46,16 @@ var mainMenuItems = []menuItem{
 	{"6", "查看服务配置 (指定)"},
 	{"7", "进入容器 (指定)"},
 	{"8", "编译服务 (所有/指定)"},
-	{"9", "清理服务 (所有/指定)"},
-	{"10", "删除镜像 (所有/指定)"},
-	{"11", "一键启动日志监控服务栈 (ELK/Graylog 等)"},
-	{"12", "一键启动数据库服务栈 (MySQL/Redis/Clickhouse)"},
-	{"13", "清理 Docker build 缓存"},
-	{"14", "清理 Docker buildx 缓存"},
-	{"15", "网络管理"},
-	{"16", "卷管理"},
-	{"17", "镜像管理"},
+	{"9", "强制重构 (所有/指定) - 不使用缓存"},
+	{"10", "清理服务 (所有/指定)"},
+	{"11", "删除镜像 (所有/指定)"},
+	{"12", "一键启动日志监控服务栈 (ELK/Graylog 等)"},
+	{"13", "一键启动数据库服务栈 (MySQL/Redis/Clickhouse)"},
+	{"14", "清理 Docker build 缓存"},
+	{"15", "清理 Docker buildx 缓存"},
+	{"16", "网络管理"},
+	{"17", "卷管理"},
+	{"18", "镜像管理"},
 	{"100", "修复服务 (所有/指定) - 重新构建镜像"},
 }
 
@@ -63,7 +64,7 @@ func (app *App) RunInteractiveCLI() error {
 	// 初始化 readline
 	var err error
 	app.RLInstance, err = readline.NewEx(&readline.Config{
-		Prompt:          fmt.Sprintf("%s请选择功能 [0-17,100]: %s", ColorCyan, ColorNC),
+		Prompt:          fmt.Sprintf("%s请选择功能 [0-18,100]: %s", ColorCyan, ColorNC),
 		InterruptPrompt: "^C",
 		EOFPrompt:       "exit",
 	})
@@ -331,12 +332,27 @@ func (app *App) handleCLIInput(choice string, services []*commands.Service, allS
 			}
 			commandObj := app.DockerCommand.NewCommandObject(commands.CommandObject{Service: s})
 			// 先 pull 确保镜像最新，再 build。通过 grep 过滤掉没必要的警告信息。
-			fullCmd := fmt.Sprintf("%s pull %s && %s build --no-cache %s 2>&1 | grep -v 'No services to build' || true", commandObj.DockerCompose, s.Name, commandObj.DockerCompose, s.Name)
+			fullCmd := fmt.Sprintf("%s pull %s && %s build %s 2>&1 | grep -v 'No services to build' || true", commandObj.DockerCompose, s.Name, commandObj.DockerCompose, s.Name)
 			cmd := exec.Command("sh", "-c", fullCmd)
 			_ = app.runSubprocessWithQuitKey(cmd)
 			return nil
 		})
 	case "9":
+		app.doServiceAction("强制重构", services, true, true, func(s *commands.Service) error {
+			if !s.IsLocal {
+				fmt.Printf("%s提示: 该服务属于外部项目，在此处无法执行编译操作。%s\n", ColorYellow, ColorNC)
+				fmt.Printf("\n按回车键继续...")
+				app.ReadInput("")
+				return nil
+			}
+			commandObj := app.DockerCommand.NewCommandObject(commands.CommandObject{Service: s})
+			// 先 pull 确保镜像最新，再使用 --no-cache 强制构建。
+			fullCmd := fmt.Sprintf("%s pull %s && %s build --no-cache %s 2>&1 | grep -v 'No services to build' || true", commandObj.DockerCompose, s.Name, commandObj.DockerCompose, s.Name)
+			cmd := exec.Command("sh", "-c", fullCmd)
+			_ = app.runSubprocessWithQuitKey(cmd)
+			return nil
+		})
+	case "10":
 		app.doServiceAction("清理", services, true, true, func(s *commands.Service) error {
 			fmt.Printf("%s警告: 这将停止并删除服务: %s%s\n", ColorYellow, s.Name, ColorNC)
 			fmt.Printf("确定要继续吗? (y/n): ")
@@ -352,7 +368,7 @@ func (app *App) handleCLIInput(choice string, services []*commands.Service, allS
 			}
 			return s.Remove(container.RemoveOptions{Force: true})
 		})
-	case "10":
+	case "11":
 		app.doServiceAction("删除镜像", services, true, false, func(s *commands.Service) error {
 			if s.Container == nil {
 				return fmt.Errorf("无法获取服务 %s 的快照信息", s.Name)
@@ -363,25 +379,25 @@ func (app *App) handleCLIInput(choice string, services []*commands.Service, allS
 			_ = app.runSubprocessWithQuitKey(cmd)
 			return nil
 		})
-	case "11":
+	case "12":
 		stack := []string{"zookeeper", "kafka", "elasticsearch", "filebeat", "go-stash", "jaeger", "grafana"}
 		app.runStackAction("日志监控服务栈", stack, services)
-	case "12":
+	case "13":
 		stack := []string{"clickhouse", "mysql", "redis"}
 		app.runStackAction("数据库服务栈", stack, services)
-	case "13":
+	case "14":
 		fmt.Printf("\n%s正在清理 Docker 构建缓存...%s\n", ColorBlue, ColorNC)
 		cmd := exec.Command("docker", "builder", "prune", "-f")
 		_ = app.runSubprocessWithQuitKey(cmd)
-	case "14":
+	case "15":
 		fmt.Printf("\n%s正在清理 Docker 构建历史(含 buildx)...%s\n", ColorBlue, ColorNC)
 		cmd := exec.Command("docker", "builder", "prune", "-af")
 		_ = app.runSubprocessWithQuitKey(cmd)
-	case "15":
-		app.runNetworkManagement()
 	case "16":
-		app.runVolumeManagement()
+		app.runNetworkManagement()
 	case "17":
+		app.runVolumeManagement()
+	case "18":
 		app.runImageManagement()
 	case "100":
 		app.doServiceAction("修复", services, true, false, func(s *commands.Service) error {
@@ -1001,8 +1017,12 @@ func (app *App) ReadInput(prompt string) string {
 func (app *App) runActionFzf(serviceName string) string {
 	var menuBuilder strings.Builder
 	for _, item := range mainMenuItems {
-		// 过滤掉一些不适合单服务操作的全局项 (可选)
-		menuBuilder.WriteString(fmt.Sprintf("%s: %s\n", item.ID, item.Text))
+		// 仅展示序号 1-10 的单服务相关操作
+		idNum := 0
+		fmt.Sscanf(item.ID, "%d", &idNum)
+		if idNum >= 1 && idNum <= 11 {
+			menuBuilder.WriteString(fmt.Sprintf("%s: %s\n", item.ID, item.Text))
+		}
 	}
 	menuData := strings.TrimSpace(menuBuilder.String())
 	lines := strings.Split(menuData, "\n")
@@ -1111,17 +1131,24 @@ func (app *App) executeActionOnService(actionID string, s *commands.Service, all
 	case "8":
 		if s.IsLocal {
 			commandObj := app.DockerCommand.NewCommandObject(commands.CommandObject{Service: s})
-			fullCmd := fmt.Sprintf("%s pull %s && %s build --no-cache %s", commandObj.DockerCompose, s.Name, commandObj.DockerCompose, s.Name)
+			fullCmd := fmt.Sprintf("%s pull %s && %s build %s 2>&1 | grep -v 'No services to build' || true", commandObj.DockerCompose, s.Name, commandObj.DockerCompose, s.Name)
 			cmd := exec.Command("sh", "-c", fullCmd)
 			_ = app.runSubprocessWithQuitKey(cmd)
 		}
 	case "9":
+		if s.IsLocal {
+			commandObj := app.DockerCommand.NewCommandObject(commands.CommandObject{Service: s})
+			fullCmd := fmt.Sprintf("%s pull %s && %s build --no-cache %s 2>&1 | grep -v 'No services to build' || true", commandObj.DockerCompose, s.Name, commandObj.DockerCompose, s.Name)
+			cmd := exec.Command("sh", "-c", fullCmd)
+			_ = app.runSubprocessWithQuitKey(cmd)
+		}
+	case "10":
 		fmt.Printf("%s确定要清理服务 %s 吗? (y/n): %s", ColorYellow, s.Name, ColorNC)
 		if strings.ToLower(app.ReadInput("")) == "y" {
 			_ = s.Stop()
 			_ = s.Remove(container.RemoveOptions{Force: true})
 		}
-	case "10":
+	case "11":
 		if s.Container != nil {
 			imageID := s.Container.Container.ImageID
 			cmd := exec.Command("docker", "rmi", "-f", imageID)
@@ -1181,7 +1208,7 @@ func (app *App) runMenuSearchFzf() string {
 	code, _ := fzf.Run(opts)
 
 	app.RLInstance, _ = readline.NewEx(&readline.Config{
-		Prompt:          fmt.Sprintf("%s请选择功能 [0-17,100]: %s", ColorCyan, ColorNC),
+		Prompt:          fmt.Sprintf("%s请选择功能 [0-18,100]: %s", ColorCyan, ColorNC),
 		InterruptPrompt: "^C",
 		EOFPrompt:       "exit",
 	})
@@ -1244,7 +1271,7 @@ func (app *App) runServiceSearchFzf(allServices []*commands.Service) string {
 	code, _ := fzf.Run(opts)
 
 	app.RLInstance, _ = readline.NewEx(&readline.Config{
-		Prompt:          fmt.Sprintf("%s请选择功能 [0-17,100]: %s", ColorCyan, ColorNC),
+		Prompt:          fmt.Sprintf("%s请选择功能 [0-18,100]: %s", ColorCyan, ColorNC),
 		InterruptPrompt: "^C",
 		EOFPrompt:       "exit",
 	})
