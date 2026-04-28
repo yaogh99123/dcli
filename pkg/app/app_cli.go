@@ -3,7 +3,6 @@ package app
 import (
 	"bufio"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -12,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	fzf "github.com/junegunn/fzf/src"
 	"github.com/manifoldco/promptui"
 
 	"github.com/docker/docker/api/types/container"
@@ -826,42 +826,70 @@ func (app *App) runImageManagement(reader *bufio.Reader) {
 }
 
 func (app *App) runMenuFzf(services []*commands.Service, reader *bufio.Reader) {
-	// 1. 尝试探测系统 fzf
-	if _, err := exec.LookPath("fzf"); err == nil {
-		// --- 模式 A: 使用系统原生 fzf (最佳体验) ---
-		var menuBuilder strings.Builder
-		for _, item := range mainMenuItems {
-			menuBuilder.WriteString(fmt.Sprintf("%s: %s\n", item.ID, item.Text))
+	var menuBuilder strings.Builder
+	for _, item := range mainMenuItems {
+		menuBuilder.WriteString(fmt.Sprintf("%s: %s\n", item.ID, item.Text))
+	}
+	menuData := menuBuilder.String()
+
+	// 1. 设置 fzf 选项 (参考 mdcli 风格)
+	fzfArgs := []string{
+		"--height=40%",
+		"--reverse",
+		"--header=快捷菜单搜索 (内嵌 fzf 模式, Esc 退出)",
+		"--cycle",
+		"--bind=esc:print(ESC)+abort",
+		"--bind=ctrl-c:print(CTRL-C)+abort",
+	}
+
+	opts, err := fzf.ParseOptions(true, fzfArgs)
+	if err != nil {
+		app.runMenuFallback(services, reader)
+		return
+	}
+
+	// 2. 准备输入通道
+	inputChan := make(chan string)
+	go func() {
+		lines := strings.Split(strings.TrimSpace(menuData), "\n")
+		for _, line := range lines {
+			inputChan <- line
 		}
-		menuData := menuBuilder.String()
+		close(inputChan)
+	}()
+	opts.Input = inputChan
 
-		cmd := exec.Command("fzf", "--height=40%", "--reverse", "--header=快捷菜单搜索 (fzf 模式, Esc 退出)")
-		cmd.Stderr = os.Stderr
-		stdin, _ := cmd.StdinPipe()
+	// 3. 准备输出通道
+	outputChan := make(chan string, 1)
+	opts.Output = outputChan
 
-		go func() {
-			defer stdin.Close()
-			_, _ = io.WriteString(stdin, menuData)
-		}()
+	// 4. 运行 fzf
+	code, err := fzf.Run(opts)
 
-		out, err := cmd.Output()
-		if err != nil {
-			return
-		}
+	// 5. 处理结果 (参考 mdcli 退出码处理)
+	if code == 130 {
+		// 用户取消或按下 Esc
+		return
+	}
 
-		result := strings.TrimSpace(string(out))
-		if result != "" {
+	if err != nil {
+		app.runMenuFallback(services, reader)
+		return
+	}
+
+	// 6. 获取选中项
+	select {
+	case result := <-outputChan:
+		if result != "" && result != "ESC" && result != "CTRL-C" {
 			parts := strings.Split(result, ":")
 			if len(parts) > 0 {
 				id := strings.TrimSpace(parts[0])
 				app.handleCLIInput(id, services, reader)
 			}
 		}
-		return
+	default:
+		// 无输出
 	}
-
-	// --- 模式 B: 自动降级到内置搜索 (无依赖保证) ---
-	app.runMenuFallback(services, reader)
 }
 
 func (app *App) runMenuFallback(services []*commands.Service, reader *bufio.Reader) {
