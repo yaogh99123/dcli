@@ -218,7 +218,6 @@ func chineseSet() TranslationSet {
 		// 镜像管理相关
 		SearchImageTitle:        "搜索所有镜像 (支持名称搜索, Esc 返回)",
 		RunImage:                "运行镜像",
-		InputContainerName:      "输入容器名称 (可选，直接回车使用默认): ",
 		RunImageSuccess:         "容器 %s 已启动",
 		RunImageFailed:          "运行镜像失败: %v",
 		SelectActionForImage:    "选择对镜像 [%s] 执行的操作 (Esc 返回)",
@@ -228,8 +227,12 @@ func chineseSet() TranslationSet {
 		DangerDeleteAllImages:   "危险: 这将删除所有未被使用的镜像! 是否继续? (y/n): ",
 		CleaningAllUnusedImages: "正在清理所有未使用镜像...",
 		PullImage:               "拉取镜像",
-		DeleteSpecifiedImage:    "删除指定镜像",
-		DeleteAllImages:         "删除所有镜像",
+		MenuRunImage:            "运行镜像",
+		MenuDeleteImage:         "删除镜像",
+		DeleteAllImages:         "清理所有未使用镜像",
+		InputImageToRun:         "请输入要运行的镜像索引或名称: ",
+		InputImageToDelete:      "请输入要删除的镜像索引或名称: ",
+		InputContainerName:      "请输入运行名称: ",
 		DetectingShell:          "正在检测可用 Shell...",
 	}
 }

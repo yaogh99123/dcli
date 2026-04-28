@@ -53,16 +53,16 @@ func RunImageMenu(
 		fmt.Printf("\n%s%s%s\n", utils.ColorGreen, tr.MenuFunction, utils.ColorNC)
 		fmt.Println("------------------------------")
 		fmt.Printf("  1. %s\n", tr.PullImage)
-		fmt.Printf("  2. %s\n", tr.DeleteSpecifiedImage)
-		fmt.Printf("  3. %s\n", tr.DeleteAllImages)
+		fmt.Printf("  2. %s\n", tr.MenuRunImage)
+		fmt.Printf("  3. %s\n", tr.MenuDeleteImage)
+		fmt.Printf("  4. %s\n", tr.DeleteAllImages)
 		fmt.Println("------------------------------")
 		fmt.Printf("  s. %s\n", tr.SearchImageTitle)
 		fmt.Println("------------------------------")
 		fmt.Printf("  0. %s\n", tr.Return)
 		fmt.Println("------------------------------")
-		fmt.Print(tr.InputServiceNameIdx) // Using common prompt
 
-		input := readInput("")
+		input := readInput(tr.InputImageToRun)
 		input = strings.TrimSpace(input)
 
 		if input == "0" || input == "" || input == "q" {
@@ -77,11 +77,10 @@ func RunImageMenu(
 			result := runFzfSelect(tr.SearchImageTitle, lines)
 			selected := parseFzfResult(result)
 			if selected != "" {
-				// Handle selected image
 				var idx int
 				_, _ = fmt.Sscanf(selected, "%d", &idx)
 				if idx > 0 && idx <= len(images) {
-					handleImageAction(images[idx-1], tr, readInput, runInteractiveSubprocess, runFzfSelect, parseFzfResult)
+					directRunImage(images[idx-1], tr, readInput, runInteractiveSubprocess)
 				}
 			}
 			continue
@@ -89,26 +88,32 @@ func RunImageMenu(
 
 		switch input {
 		case "1":
-			fmt.Printf("%s: ", tr.PullImage)
-			name := readInput("")
+			name := readInput(tr.PullImage + ": ")
 			name = strings.TrimSpace(name)
 			if name != "" {
 				fmt.Printf("%s%s %s...%s\n", utils.ColorYellow, tr.PullImage, name, utils.ColorNC)
 				cmd := exec.Command("docker", "pull", name)
 				_ = runInteractiveSubprocess(cmd)
 			}
-		case "2":
-			fmt.Print(tr.InputServiceNameIdx)
-			idxStr := readInput("")
+		case "2": // Direct Run
 			var idx int
-			_, _ = fmt.Sscanf(strings.TrimSpace(idxStr), "%d", &idx)
+			_, _ = fmt.Sscanf(input, "%d", &idx) // input is already the index since it was read at top
 			if idx > 0 && idx <= len(images) {
-				handleImageAction(images[idx-1], tr, readInput, runInteractiveSubprocess, runFzfSelect, parseFzfResult)
+				directRunImage(images[idx-1], tr, readInput, runInteractiveSubprocess)
 			} else {
 				fmt.Printf("%s%s%s\n", utils.ColorRed, tr.InvalidIndex, utils.ColorNC)
 				time.Sleep(1 * time.Second)
 			}
-		case "3":
+		case "3": // Direct Delete
+			var idx int
+			_, _ = fmt.Sscanf(input, "%d", &idx)
+			if idx > 0 && idx <= len(images) {
+				directDeleteImage(images[idx-1], tr, readInput)
+			} else {
+				fmt.Printf("%s%s%s\n", utils.ColorRed, tr.InvalidIndex, utils.ColorNC)
+				time.Sleep(1 * time.Second)
+			}
+		case "4":
 			fmt.Printf("%s%s%s", utils.ColorRed, tr.DangerDeleteAllImages, utils.ColorNC)
 			confirm := readInput("")
 			if strings.ToLower(strings.TrimSpace(confirm)) == "y" {
@@ -116,56 +121,56 @@ func RunImageMenu(
 				cmd := exec.Command("docker", "image", "prune", "-af")
 				_ = runInteractiveSubprocess(cmd)
 			}
+		default:
+			// Try to treat input as index directly if it's a number
+			var idx int
+			n, _ := fmt.Sscanf(input, "%d", &idx)
+			if n > 0 && idx > 0 && idx <= len(images) {
+				// Default behavior for index: show action menu? No, user wants fast.
+				// But we don't know if they want to run or delete.
+				// Given they mostly run, let's show the direct action choice or just run.
+				// Actually, the user asked to split 2 and 3, so we follow that.
+			}
 		}
 	}
 }
 
-func handleImageAction(
+func directRunImage(
 	img *commands.Image,
 	tr *i18n.TranslationSet,
 	readInput func(string) string,
 	runInteractiveSubprocess func(*exec.Cmd) error,
-	runFzfSelect func(string, []string) string,
-	parseFzfResult func(string) string,
 ) {
-	lines := []string{
-		fmt.Sprintf("1: %s", tr.RemoveImage),
-		fmt.Sprintf("2: %s", tr.RunImage),
+	name := readInput(tr.InputContainerName)
+	name = strings.TrimSpace(name)
+
+	fmt.Printf("%s%s%s\n", utils.ColorBlue, tr.DetectingShell, utils.ColorNC)
+	checkCmd := exec.Command("docker", "run", "--rm", img.ID, "which", "bash")
+	shell := "sh"
+	if err := checkCmd.Run(); err == nil {
+		shell = "bash"
 	}
 
-	result := runFzfSelect(fmt.Sprintf(tr.SelectActionForImage, img.Name), lines)
-	actionID := parseFzfResult(result)
+	cmd := img.GetInteractiveRunCmd(name, shell)
+	if err := runInteractiveSubprocess(cmd); err != nil {
+		fmt.Printf("%s%s%s\n", utils.ColorRed, fmt.Sprintf(tr.RunImageFailed, err), utils.ColorNC)
+		time.Sleep(1 * time.Second)
+	}
+}
 
-	switch actionID {
-	case "1": // Remove
-		fmt.Printf("%s%s %s (ID: %s) ? (y/n): %s", utils.ColorYellow, tr.ConfirmDeleteImage, img.Name, img.ID[:12], utils.ColorNC)
-		confirm := readInput("")
-		if strings.ToLower(strings.TrimSpace(confirm)) == "y" {
-			fmt.Printf("%s%s%s\n", utils.ColorYellow, tr.DeletingImage, utils.ColorNC)
-			if err := img.Remove(image.RemoveOptions{Force: true}); err != nil {
-				fmt.Printf("%s%s: %v%s\n", utils.ColorRed, tr.ActionFailed, err, utils.ColorNC)
-			} else {
-				fmt.Printf("%s%s%s\n", utils.ColorGreen, tr.ActionSuccess, utils.ColorNC)
-			}
-			time.Sleep(1 * time.Second)
+func directDeleteImage(
+	img *commands.Image,
+	tr *i18n.TranslationSet,
+	readInput func(string) string,
+) {
+	confirm := readInput(fmt.Sprintf("%s%s %s (ID: %s) ? (y/n): %s", utils.ColorYellow, tr.ConfirmDeleteImage, img.Name, img.ID[:12], utils.ColorNC))
+	if strings.ToLower(strings.TrimSpace(confirm)) == "y" {
+		fmt.Printf("%s%s%s\n", utils.ColorYellow, tr.DeletingImage, utils.ColorNC)
+		if err := img.Remove(image.RemoveOptions{Force: true}); err != nil {
+			fmt.Printf("%s%s: %v%s\n", utils.ColorRed, tr.ActionFailed, err, utils.ColorNC)
+		} else {
+			fmt.Printf("%s%s%s\n", utils.ColorGreen, tr.ActionSuccess, utils.ColorNC)
 		}
-	case "2": // Run (Interactive)
-		fmt.Print(tr.InputContainerName)
-		name := readInput("")
-		name = strings.TrimSpace(name)
-
-		fmt.Printf("%s%s%s\n", utils.ColorBlue, tr.DetectingShell, utils.ColorNC)
-		// 参考进入容器的做法，通过一个临时容器检测 shell
-		checkCmd := exec.Command("docker", "run", "--rm", img.ID, "which", "bash")
-		shell := "sh"
-		if err := checkCmd.Run(); err == nil {
-			shell = "bash"
-		}
-
-		cmd := img.GetInteractiveRunCmd(name, shell)
-		if err := runInteractiveSubprocess(cmd); err != nil {
-			fmt.Printf("%s%s%s\n", utils.ColorRed, fmt.Sprintf(tr.RunImageFailed, err), utils.ColorNC)
-			time.Sleep(1 * time.Second)
-		}
+		time.Sleep(1 * time.Second)
 	}
 }
