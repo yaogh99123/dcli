@@ -56,7 +56,7 @@ func (app *App) runFzfSelect(header string, lines []string) string {
 
 	// fzf 运行结束后，重新初始化 readline 供主循环使用
 	app.RLInstance, _ = readline.NewEx(&readline.Config{
-		Prompt:          fmt.Sprintf("%s请选择功能 [0-18,100]: %s", utils.ColorCyan, utils.ColorNC),
+		Prompt:          fmt.Sprintf("%s%s %s", utils.ColorCyan, app.Tr.InputServiceNameIdx, utils.ColorNC),
 		InterruptPrompt: "^C",
 		EOFPrompt:       "exit",
 	})
@@ -135,19 +135,19 @@ func (app *App) runSubprocessWithQuitKey(cmd *exec.Cmd) error {
 	select {
 	case err := <-done:
 		if err != nil {
-			fmt.Printf("\n%s指令执行出错: %v%s\n", utils.ColorRed, err, utils.ColorNC)
+			fmt.Printf("\n%s%s%s\n", utils.ColorRed, fmt.Sprintf(app.Tr.CommandExecutionError, err), utils.ColorNC)
 		}
-		fmt.Printf("\n%s--- 执行完毕，输入 'exit' 返回主菜单 ---%s\n", utils.ColorBlue, utils.ColorNC)
+		fmt.Printf("\n%s%s%s\n", utils.ColorBlue, app.Tr.ExecutionFinishedExitTip, utils.ColorNC)
 		// 子进程虽然结束了，但我们要继续等待 quitChan 里的 'exit' 命令
 		goto WAIT_LOOP
 	case <-sigChan:
 		// 收到 Ctrl+C，打印提示但不退出
-		fmt.Printf("\n%s[提示] 请输入 'exit' 并回车以返回主菜单%s\n", utils.ColorYellow, utils.ColorNC)
+		fmt.Printf("\n%s%s%s\n", utils.ColorYellow, app.Tr.PressExitToReturnTip, utils.ColorNC)
 		goto WAIT_LOOP
 	case <-quitChan:
 		// 收到 exit 命令，如果子进程还在跑，就杀掉它
 		_ = cmd.Process.Signal(os.Interrupt)
-		fmt.Printf("\n%s正在返回主菜单...%s\n", utils.ColorBlue, utils.ColorNC)
+		fmt.Printf("\n%s%s%s\n", utils.ColorBlue, app.Tr.ReturningToMainMenu, utils.ColorNC)
 		select {
 		case <-done:
 		case <-time.After(500 * time.Millisecond):
@@ -161,7 +161,7 @@ WAIT_LOOP:
 	for {
 		select {
 		case <-sigChan:
-			fmt.Printf("\n%s[提示] 必须输入 'exit' 才能退出当前界面%s\n", utils.ColorYellow, utils.ColorNC)
+			fmt.Printf("\n%s%s%s\n", utils.ColorYellow, app.Tr.MustTypeExitToQuit, utils.ColorNC)
 		case <-quitChan:
 			return nil
 		case <-done:

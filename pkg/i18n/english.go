@@ -188,14 +188,15 @@ type TranslationSet struct {
 	Build                      string
 	Clean                      string
 	Fix                        string
-	Start                      string
-	Stop                       string
-	Restart                    string
 	ForceReconstruct           string
 	FzfSelected                string
 	SuffixAllSpecified         string
 	SuffixSpecified            string
-	ServicesTitle              string
+	CommandExecutionError      string
+	ExecutionFinishedExitTip   string
+	PressExitToReturnTip       string
+	ReturningToMainMenu        string
+	MustTypeExitToQuit         string
 
 	// Menu Items
 	MenuStartService      string
@@ -412,14 +413,15 @@ func englishSet() TranslationSet {
 		Build:                      "Build",
 		Clean:                      "Clean",
 		Fix:                        "Fix",
-		Start:                      "Start",
-		Stop:                       "Stop",
-		Restart:                    "Restart",
 		ForceReconstruct:           "Force Reconstruct",
 		FzfSelected:                "Selected",
 		SuffixAllSpecified:         " (All/Specified)",
 		SuffixSpecified:            " (Specified)",
-		ServicesTitle:              "Services",
+		CommandExecutionError:      "Command execution error: %v",
+		ExecutionFinishedExitTip:   "--- Execution finished, type 'exit' to return to main menu ---",
+		PressExitToReturnTip:       "[Tip] Please type 'exit' and press Enter to return to main menu",
+		ReturningToMainMenu:        "Returning to main menu...",
+		MustTypeExitToQuit:         "[Tip] You must type 'exit' to quit the current screen",
 
 		// Menu Items
 		MenuStartService:      "Start Service (All/Specified)",
