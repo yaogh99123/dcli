@@ -62,7 +62,7 @@ func (app *App) RunInteractiveCLI() error {
 	// 初始化 readline
 	var err error
 	app.RLInstance, err = readline.NewEx(&readline.Config{
-		Prompt:          fmt.Sprintf("\n%s请选择功能 [0-17,100]: %s", ColorCyan, ColorNC),
+		Prompt:          fmt.Sprintf("%s请选择功能 [0-17,100]: %s", ColorCyan, ColorNC),
 		InterruptPrompt: "^C",
 		EOFPrompt:       "exit",
 	})
@@ -166,6 +166,7 @@ func (app *App) RunInteractiveCLI() error {
 		}
 
 		// 6. Read input using Readline
+		fmt.Println() // 手动换行，不在 Prompt 里换
 		line, err := app.RLInstance.Readline()
 		if err != nil {
 			if err == readline.ErrInterrupt {
@@ -433,7 +434,8 @@ func (app *App) doServiceAction(actionName string, services []*commands.Service,
 	}
 
 	if waitForEnter {
-		app.ReadInput(fmt.Sprintf("\n%s操作完成，按 Enter 继续...%s", ColorYellow, ColorNC))
+		fmt.Println()
+		app.ReadInput(fmt.Sprintf("%s操作完成，按 Enter 继续...%s", ColorYellow, ColorNC))
 	}
 }
 
@@ -897,7 +899,7 @@ func (app *App) runMenuFzf(services []*commands.Service) string {
 
 	// fzf 运行结束后，重新初始化 readline 供主循环使用
 	app.RLInstance, _ = readline.NewEx(&readline.Config{
-		Prompt:          fmt.Sprintf("\n%s请选择功能 [0-17,100]: %s", ColorCyan, ColorNC),
+		Prompt:          fmt.Sprintf("%s请选择功能 [0-17,100]: %s", ColorCyan, ColorNC),
 		InterruptPrompt: "^C",
 		EOFPrompt:       "exit",
 	})
