@@ -184,6 +184,14 @@ func chineseSet() TranslationSet {
 		Build:                      "编译",
 		Clean:                      "清理",
 		Fix:                        "修复",
+		Start:                      "启动",
+		Stop:                       "停止",
+		Restart:                    "重启",
+		ForceReconstruct:           "强制重构",
+		FzfSelected:                "选中",
+		SuffixAllSpecified:         " (所有/指定)",
+		SuffixSpecified:            " (指定)",
+		ServicesTitle:              "服务",
 
 		// Menu Items
 		MenuStartService:      "启动服务 (所有/指定)",

@@ -188,6 +188,14 @@ type TranslationSet struct {
 	Build                      string
 	Clean                      string
 	Fix                        string
+	Start                      string
+	Stop                       string
+	Restart                    string
+	ForceReconstruct           string
+	FzfSelected                string
+	SuffixAllSpecified         string
+	SuffixSpecified            string
+	ServicesTitle              string
 
 	// Menu Items
 	MenuStartService      string
@@ -404,6 +412,14 @@ func englishSet() TranslationSet {
 		Build:                      "Build",
 		Clean:                      "Clean",
 		Fix:                        "Fix",
+		Start:                      "Start",
+		Stop:                       "Stop",
+		Restart:                    "Restart",
+		ForceReconstruct:           "Force Reconstruct",
+		FzfSelected:                "Selected",
+		SuffixAllSpecified:         " (All/Specified)",
+		SuffixSpecified:            " (Specified)",
+		ServicesTitle:              "Services",
 
 		// Menu Items
 		MenuStartService:      "Start Service (All/Specified)",
