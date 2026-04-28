@@ -511,7 +511,11 @@ func (app *App) runActionFzf(serviceName string) string {
 		idNum := 0
 		_, _ = fmt.Sscanf(item.ID, "%d", &idNum)
 		if idNum >= 1 && idNum <= 11 {
-			lines = append(lines, fmt.Sprintf("%s: %s", item.ID, item.Text))
+			// 移除 "(所有/指定)" 或 "(指定)" 后缀
+			text := item.Text
+			text = strings.ReplaceAll(text, " (所有/指定)", "")
+			text = strings.ReplaceAll(text, " (指定)", "")
+			lines = append(lines, fmt.Sprintf("%s: %s", item.ID, text))
 		}
 	}
 
