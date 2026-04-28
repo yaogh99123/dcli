@@ -10,6 +10,7 @@ import (
 	"github.com/yaogh99123/dcli/pkg/log"
 	"github.com/yaogh99123/dcli/pkg/utils"
 	"github.com/sirupsen/logrus"
+	"github.com/chzyer/readline"
 )
 
 // App struct
@@ -23,6 +24,7 @@ type App struct {
 	Tr            *i18n.TranslationSet
 	ErrorChan     chan error
 	showMenu      bool
+	RLInstance    *readline.Instance
 }
 
 // NewApp bootstrap a new application

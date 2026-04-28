@@ -3,6 +3,7 @@ package app
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"github.com/chzyer/readline"
 
 	fzf "github.com/junegunn/fzf/src"
 	"github.com/manifoldco/promptui"
@@ -57,7 +59,17 @@ var mainMenuItems = []menuItem{
 
 // RunInteractiveCLI runs the application in interactive CLI mode
 func (app *App) RunInteractiveCLI() error {
-	reader := bufio.NewReader(os.Stdin)
+	// 初始化 readline
+	var err error
+	app.RLInstance, err = readline.NewEx(&readline.Config{
+		Prompt:          fmt.Sprintf("\n%s请选择功能 [0-17,100]: %s", ColorCyan, ColorNC),
+		InterruptPrompt: "^C",
+		EOFPrompt:       "exit",
+	})
+	if err != nil {
+		return err
+	}
+	defer app.RLInstance.Close()
 
 	for {
 		// 1. Refresh data
@@ -153,23 +165,35 @@ func (app *App) RunInteractiveCLI() error {
 			fmt.Printf("%s快捷指令: [a]全部, [r]运行中, [s]搜索, [menu]菜单%s\n", ColorYellow, ColorNC)
 		}
 
-		fmt.Printf("\n%s请选择功能 [0-17,100]: %s", ColorCyan, ColorNC)
+		// 6. Read input using Readline
+		line, err := app.RLInstance.Readline()
+		if err != nil {
+			if err == readline.ErrInterrupt {
+				if len(line) == 0 {
+					fmt.Printf("\n%s再见!%s\n", ColorGreen, ColorNC)
+					break
+				}
+				continue
+			} else if err == io.EOF {
+				fmt.Printf("\n%s再见!%s\n", ColorGreen, ColorNC)
+				break
+			}
+			return err
+		}
 
-		input, _ := reader.ReadString('\n')
-		input = strings.TrimSpace(input)
-
-		if input == "0" {
+		input := strings.TrimSpace(line)
+		if input == "0" || input == "exit" || input == "quit" {
 			fmt.Printf("%s再见!%s\n", ColorGreen, ColorNC)
 			break
 		}
 
-		app.handleCLIInput(input, services, reader)
+		app.handleCLIInput(input, services)
 	}
 
 	return nil
 }
 
-func (app *App) handleCLIInput(choice string, services []*commands.Service, reader *bufio.Reader) {
+func (app *App) handleCLIInput(choice string, services []*commands.Service) {
 	// 每次输入操作后，默认隐藏菜单（除非显式请求显示）
 	defer func() {
 		if choice != "menu" {
@@ -183,7 +207,11 @@ func (app *App) handleCLIInput(choice string, services []*commands.Service, read
 	}
 
 	if choice == "s" || choice == "search" {
-		app.runMenuFzf(services, reader)
+		selected := app.runMenuFzf(services)
+		if selected != "" {
+			// 在处理新输入前，可以简单输出一下，确保用户知道当前状态
+			app.handleCLIInput(selected, services)
+		}
 		return
 	}
 
@@ -198,19 +226,19 @@ func (app *App) handleCLIInput(choice string, services []*commands.Service, read
 		return
 	case "stopped", "stop":
 	case "1":
-		app.doServiceAction("启动", services, reader, true, true, func(s *commands.Service) error {
+		app.doServiceAction("启动", services, true, true, func(s *commands.Service) error {
 			return s.Up()
 		})
 	case "2":
-		app.doServiceAction("停止", services, reader, true, true, func(s *commands.Service) error {
+		app.doServiceAction("停止", services, true, true, func(s *commands.Service) error {
 			return s.Stop()
 		})
 	case "3":
-		app.doServiceAction("重启", services, reader, true, true, func(s *commands.Service) error {
+		app.doServiceAction("重启", services, true, true, func(s *commands.Service) error {
 			return s.Restart()
 		})
 	case "4":
-		app.doServiceAction("查看日志", services, reader, true, false, func(s *commands.Service) error {
+		app.doServiceAction("查看日志", services, true, false, func(s *commands.Service) error {
 			if s.Container == nil {
 				fmt.Printf("%s警告: 服务 %s 未运行，可能无实时日志。%s\n", ColorYellow, s.Name, ColorNC)
 			}
@@ -223,7 +251,7 @@ func (app *App) handleCLIInput(choice string, services []*commands.Service, read
 			return nil
 		})
 	case "5":
-		app.doServiceAction("查看状态", services, reader, false, false, func(s *commands.Service) error {
+		app.doServiceAction("查看状态", services, false, false, func(s *commands.Service) error {
 			fmt.Printf("%s=== 服务状态: %s ===%s\n", ColorBlue, s.Name, ColorNC)
 			commandObj := app.DockerCommand.NewCommandObject(commands.CommandObject{Service: s})
 			fullCmd := fmt.Sprintf("%s ps %s", commandObj.DockerCompose, s.Name)
@@ -232,12 +260,12 @@ func (app *App) handleCLIInput(choice string, services []*commands.Service, read
 			return nil
 		})
 	case "6":
-		app.doServiceAction("查看配置", services, reader, false, false, func(s *commands.Service) error {
+		app.doServiceAction("查看配置", services, false, false, func(s *commands.Service) error {
 			if !s.IsLocal {
 				if s.Container == nil {
 					fmt.Printf("%s提示: 该服务属于外部项目且容器未运行，无法获取配置。%s\n", ColorYellow, ColorNC)
 					fmt.Printf("\n按回车键继续...")
-					_, _ = reader.ReadString('\n')
+					app.ReadInput("")
 					return nil
 				}
 				fmt.Printf("%s提示: 该服务属于外部项目 (%s)，正在通过 docker inspect 查看运行时配置...%s\n", ColorYellow, s.ProjectName, ColorNC)
@@ -253,7 +281,7 @@ func (app *App) handleCLIInput(choice string, services []*commands.Service, read
 			return nil
 		})
 	case "7":
-		app.doServiceAction("进入容器", services, reader, false, false, func(s *commands.Service) error {
+		app.doServiceAction("进入容器", services, false, false, func(s *commands.Service) error {
 			if s.Container == nil {
 				return fmt.Errorf("服务 %s 未运行", s.Name)
 			}
@@ -272,11 +300,11 @@ func (app *App) handleCLIInput(choice string, services []*commands.Service, read
 			return app.runInteractiveSubprocess(cmd)
 		})
 	case "8":
-		app.doServiceAction("编译(更新服务)", services, reader, true, false, func(s *commands.Service) error {
+		app.doServiceAction("编译(更新服务)", services, true, false, func(s *commands.Service) error {
 			if !s.IsLocal {
 				fmt.Printf("%s提示: 该服务属于外部项目，在此处无法执行编译操作。%s\n", ColorYellow, ColorNC)
 				fmt.Printf("\n按回车键继续...")
-				_, _ = reader.ReadString('\n')
+				app.ReadInput("")
 				return nil
 			}
 			commandObj := app.DockerCommand.NewCommandObject(commands.CommandObject{Service: s})
@@ -287,10 +315,10 @@ func (app *App) handleCLIInput(choice string, services []*commands.Service, read
 			return nil
 		})
 	case "9":
-		app.doServiceAction("清理", services, reader, true, true, func(s *commands.Service) error {
+		app.doServiceAction("清理", services, true, true, func(s *commands.Service) error {
 			fmt.Printf("%s警告: 这将停止并删除服务: %s%s\n", ColorYellow, s.Name, ColorNC)
 			fmt.Printf("确定要继续吗? (y/n): ")
-			confirm, _ := reader.ReadString('\n')
+			confirm := app.ReadInput("")
 			if strings.ToLower(strings.TrimSpace(confirm)) != "y" {
 				return nil
 			}
@@ -303,7 +331,7 @@ func (app *App) handleCLIInput(choice string, services []*commands.Service, read
 			return s.Remove(container.RemoveOptions{Force: true})
 		})
 	case "10":
-		app.doServiceAction("删除镜像", services, reader, true, false, func(s *commands.Service) error {
+		app.doServiceAction("删除镜像", services, true, false, func(s *commands.Service) error {
 			if s.Container == nil {
 				return fmt.Errorf("无法获取服务 %s 的快照信息", s.Name)
 			}
@@ -315,10 +343,10 @@ func (app *App) handleCLIInput(choice string, services []*commands.Service, read
 		})
 	case "11":
 		stack := []string{"zookeeper", "kafka", "elasticsearch", "filebeat", "go-stash", "jaeger", "grafana"}
-		app.runStackAction("日志监控服务栈", stack, services, reader)
+		app.runStackAction("日志监控服务栈", stack, services)
 	case "12":
 		stack := []string{"clickhouse", "mysql", "redis"}
-		app.runStackAction("数据库服务栈", stack, services, reader)
+		app.runStackAction("数据库服务栈", stack, services)
 	case "13":
 		fmt.Printf("\n%s正在清理 Docker 构建缓存...%s\n", ColorBlue, ColorNC)
 		cmd := exec.Command("docker", "builder", "prune", "-f")
@@ -328,17 +356,17 @@ func (app *App) handleCLIInput(choice string, services []*commands.Service, read
 		cmd := exec.Command("docker", "builder", "prune", "-af")
 		_ = app.runSubprocessWithQuitKey(cmd)
 	case "15":
-		app.runNetworkManagement(reader)
+		app.runNetworkManagement()
 	case "16":
-		app.runVolumeManagement(reader)
+		app.runVolumeManagement()
 	case "17":
-		app.runImageManagement(reader)
+		app.runImageManagement()
 	case "100":
-		app.doServiceAction("修复", services, reader, true, false, func(s *commands.Service) error {
+		app.doServiceAction("修复", services, true, false, func(s *commands.Service) error {
 			if !s.IsLocal {
 				fmt.Printf("%s提示: 该服务属于外部项目，无法在此执行全面修复。%s\n", ColorYellow, ColorNC)
 				fmt.Printf("\n按回车键继续...")
-				_, _ = reader.ReadString('\n')
+				app.ReadInput("")
 				return nil
 			}
 			fmt.Printf("%s正在全面修复服务: %s...%s\n", ColorYellow, s.Name, ColorNC)
@@ -355,17 +383,15 @@ func (app *App) handleCLIInput(choice string, services []*commands.Service, read
 	}
 }
 
-func (app *App) doServiceAction(actionName string, services []*commands.Service, reader *bufio.Reader, allowAll bool, waitForEnter bool, action func(*commands.Service) error) {
+func (app *App) doServiceAction(actionName string, services []*commands.Service, allowAll bool, waitForEnter bool, action func(*commands.Service) error) {
 	fmt.Printf("\n%s选择要%s的服务（直接按回车或输入 q/0 返回主菜单）：%s\n", ColorYellow, actionName, ColorNC)
+	promptHint := "输入数字索引 (如: 1) 或服务名 (如: mysql)，多个用空格分隔"
 	if allowAll {
-		fmt.Println("输入 'all' 选择所有服务，或输入数字索引 (如: 1) 或服务名 (如: mysql)，多个用空格分隔")
-	} else {
-		fmt.Println("输入数字索引 (如: 1) 或服务名 (如: mysql)，多个用空格分隔")
+		promptHint = "输入 'all' 选择所有服务，或输入数字索引 (如: 1) 或服务名 (如: mysql)，多个用空格分隔"
 	}
-	fmt.Print("服务名/索引：")
+	fmt.Println(promptHint)
 
-	input, _ := reader.ReadString('\n')
-	input = strings.TrimSpace(input)
+	input := app.ReadInput("服务名/索引：")
 
 	if input == "" || input == "q" || input == "0" {
 		return
@@ -407,14 +433,13 @@ func (app *App) doServiceAction(actionName string, services []*commands.Service,
 	}
 
 	if waitForEnter {
-		fmt.Printf("\n%s按 Enter 继续...%s", ColorYellow, ColorNC)
-		_, _ = reader.ReadString('\n')
+		app.ReadInput(fmt.Sprintf("\n%s操作完成，按 Enter 继续...%s", ColorYellow, ColorNC))
 	}
 }
 
-func (app *App) runStackAction(stackName string, stack []string, services []*commands.Service, reader *bufio.Reader) {
+func (app *App) runStackAction(stackName string, stack []string, services []*commands.Service) {
 	fmt.Printf("\n%s确定要一键启动%s吗? (y/n, 默认为 n): %s", ColorBlue, stackName, ColorNC)
-	confirm, _ := reader.ReadString('\n')
+	confirm := app.ReadInput("")
 	if strings.ToLower(strings.TrimSpace(confirm)) != "y" {
 		return
 	}
@@ -556,7 +581,7 @@ func (app *App) runInteractiveSubprocess(cmd *exec.Cmd) error {
 	}
 }
 
-func (app *App) runNetworkManagement(reader *bufio.Reader) {
+func (app *App) runNetworkManagement() {
 	for {
 		networks, err := app.DockerCommand.RefreshNetworks()
 		if err != nil {
@@ -578,7 +603,7 @@ func (app *App) runNetworkManagement(reader *bufio.Reader) {
 		fmt.Println("  0. 返回主菜单")
 		fmt.Print("\n请选择 [0-5]: ")
 
-		input, _ := reader.ReadString('\n')
+		input := app.ReadInput("")
 		input = strings.TrimSpace(input)
 
 		if input == "0" || input == "" {
@@ -588,7 +613,7 @@ func (app *App) runNetworkManagement(reader *bufio.Reader) {
 		switch input {
 		case "1":
 			fmt.Print("请输入网络名称: ")
-			name, _ := reader.ReadString('\n')
+			name := app.ReadInput("")
 			name = strings.TrimSpace(name)
 			if name != "" {
 				fmt.Printf("%s正在创建网络 %s...%s\n", ColorYellow, name, ColorNC)
@@ -601,7 +626,7 @@ func (app *App) runNetworkManagement(reader *bufio.Reader) {
 			}
 		case "2":
 			fmt.Print("请输入要删除的网络索引: ")
-			idxStr, _ := reader.ReadString('\n')
+			idxStr := app.ReadInput("")
 			var idx int
 			_, _ = fmt.Sscanf(strings.TrimSpace(idxStr), "%d", &idx)
 			if idx > 0 && idx <= len(networks) {
@@ -616,9 +641,9 @@ func (app *App) runNetworkManagement(reader *bufio.Reader) {
 				fmt.Printf("%s无效的索引%s\n", ColorRed, ColorNC)
 			}
 		case "3":
-			app.handleNetworkConnection(reader, networks, true)
+			app.handleNetworkConnection(networks, true)
 		case "4":
-			app.handleNetworkConnection(reader, networks, false)
+			app.handleNetworkConnection(networks, false)
 		case "5":
 			fmt.Printf("%s正在清理未使用的网络...%s\n", ColorYellow, ColorNC)
 			if err := app.DockerCommand.PruneNetworks(); err != nil {
@@ -630,7 +655,7 @@ func (app *App) runNetworkManagement(reader *bufio.Reader) {
 	}
 }
 
-func (app *App) handleNetworkConnection(reader *bufio.Reader, networks []*commands.Network, isConnect bool) {
+func (app *App) handleNetworkConnection(networks []*commands.Network, isConnect bool) {
 	action := "加入"
 	cmdPart := "connect"
 	if !isConnect {
@@ -640,7 +665,7 @@ func (app *App) handleNetworkConnection(reader *bufio.Reader, networks []*comman
 
 	// 1. 选择网络
 	fmt.Printf("\n选择要%s的网络索引: ", action)
-	idxStr, _ := reader.ReadString('\n')
+	idxStr := app.ReadInput("")
 	var netIdx int
 	_, _ = fmt.Sscanf(strings.TrimSpace(idxStr), "%d", &netIdx)
 	if netIdx <= 0 || netIdx > len(networks) {
@@ -661,7 +686,7 @@ func (app *App) handleNetworkConnection(reader *bufio.Reader, networks []*comman
 		fmt.Printf("%2d. %-30s ID: %s\n", i+1, c.Name, c.ID[:12])
 	}
 	fmt.Printf("\n选择要%s网络的容器索引: ", action)
-	cIdxStr, _ := reader.ReadString('\n')
+	cIdxStr := app.ReadInput("容器序号: ")
 	var cIdx int
 	_, _ = fmt.Sscanf(strings.TrimSpace(cIdxStr), "%d", &cIdx)
 	if cIdx <= 0 || cIdx > len(containers) {
@@ -680,7 +705,7 @@ func (app *App) handleNetworkConnection(reader *bufio.Reader, networks []*comman
 	}
 }
 
-func (app *App) runVolumeManagement(reader *bufio.Reader) {
+func (app *App) runVolumeManagement() {
 	for {
 		volumes, err := app.DockerCommand.RefreshVolumes()
 		if err != nil {
@@ -699,7 +724,7 @@ func (app *App) runVolumeManagement(reader *bufio.Reader) {
 		fmt.Println("  0. 返回主菜单")
 		fmt.Print("\n请选择: ")
 
-		input, _ := reader.ReadString('\n')
+		input := app.ReadInput("")
 		input = strings.TrimSpace(input)
 
 		if input == "0" || input == "" {
@@ -716,7 +741,7 @@ func (app *App) runVolumeManagement(reader *bufio.Reader) {
 			}
 		case "2":
 			fmt.Print("请输入要删除的卷索引: ")
-			idxStr, _ := reader.ReadString('\n')
+			idxStr := app.ReadInput("")
 			var idx int
 			_, _ = fmt.Sscanf(strings.TrimSpace(idxStr), "%d", &idx)
 			if idx > 0 && idx <= len(volumes) {
@@ -734,7 +759,7 @@ func (app *App) runVolumeManagement(reader *bufio.Reader) {
 	}
 }
 
-func (app *App) runImageManagement(reader *bufio.Reader) {
+func (app *App) runImageManagement() {
 	for {
 		images, err := app.DockerCommand.RefreshImages()
 		if err != nil {
@@ -774,7 +799,7 @@ func (app *App) runImageManagement(reader *bufio.Reader) {
 		fmt.Println("------------------------------")
 		fmt.Print("请选择: ")
 
-		input, _ := reader.ReadString('\n')
+		input := app.ReadInput("")
 		input = strings.TrimSpace(input)
 
 		if input == "0" || input == "" {
@@ -784,7 +809,7 @@ func (app *App) runImageManagement(reader *bufio.Reader) {
 		switch input {
 		case "1":
 			fmt.Print("请输入要拉取的镜像名称 (如 nginx:latest): ")
-			name, _ := reader.ReadString('\n')
+			name := app.ReadInput("")
 			name = strings.TrimSpace(name)
 			if name != "" {
 				fmt.Printf("%s正在拉取镜像 %s...%s\n", ColorYellow, name, ColorNC)
@@ -793,13 +818,13 @@ func (app *App) runImageManagement(reader *bufio.Reader) {
 			}
 		case "2":
 			fmt.Print("请输入要删除的镜像索引: ")
-			idxStr, _ := reader.ReadString('\n')
+			idxStr := app.ReadInput("")
 			var idx int
 			_, _ = fmt.Sscanf(strings.TrimSpace(idxStr), "%d", &idx)
 			if idx > 0 && idx <= len(images) {
 				img := images[idx-1]
 				fmt.Printf("%s确定要删除镜像 %s (ID: %s) 吗? (y/n): %s", ColorYellow, img.Name, img.ID[:12], ColorNC)
-				confirm, _ := reader.ReadString('\n')
+				confirm := app.ReadInput("")
 				if strings.ToLower(strings.TrimSpace(confirm)) == "y" {
 					fmt.Printf("%s正在删除镜像...%s\n", ColorYellow, ColorNC)
 					if err := img.Remove(image.RemoveOptions{Force: true}); err != nil {
@@ -815,7 +840,7 @@ func (app *App) runImageManagement(reader *bufio.Reader) {
 			}
 		case "3":
 			fmt.Printf("%s危险: 这将删除所有未被使用的镜像! 是否继续? (y/n): %s", ColorRed, ColorNC)
-			confirm, _ := reader.ReadString('\n')
+			confirm := app.ReadInput("")
 			if strings.ToLower(strings.TrimSpace(confirm)) == "y" {
 				fmt.Printf("%s正在清理所有未使用镜像...%s\n", ColorYellow, ColorNC)
 				cmd := exec.Command("docker", "image", "prune", "-af")
@@ -825,74 +850,79 @@ func (app *App) runImageManagement(reader *bufio.Reader) {
 	}
 }
 
-func (app *App) runMenuFzf(services []*commands.Service, reader *bufio.Reader) {
+func (app *App) runMenuFzf(services []*commands.Service) string {
 	var menuBuilder strings.Builder
+	// 1. 构建菜单数据
 	for _, item := range mainMenuItems {
 		menuBuilder.WriteString(fmt.Sprintf("%s: %s\n", item.ID, item.Text))
 	}
-	menuData := menuBuilder.String()
+	for _, s := range services {
+		menuBuilder.WriteString(fmt.Sprintf("%s: %s\n", s.Name, "服务 (Service)"))
+	}
+	menuData := strings.TrimSpace(menuBuilder.String())
+	lines := strings.Split(menuData, "\n")
 
-	// 1. 设置 fzf 选项 (参考 mdcli 风格)
+	// 2. 设置 fzf 选项
 	fzfArgs := []string{
 		"--height=40%",
 		"--reverse",
-		"--header=快捷菜单搜索 (内嵌 fzf 模式, Esc 退出)",
+		"--header=快捷搜索 (输入过滤, Esc/Ctrl-C 返回)",
 		"--cycle",
-		"--bind=esc:print(ESC)+abort",
-		"--bind=ctrl-c:print(CTRL-C)+abort",
 	}
 
 	opts, err := fzf.ParseOptions(true, fzfArgs)
 	if err != nil {
-		app.runMenuFallback(services, reader)
-		return
+		return ""
 	}
 
-	// 2. 准备输入通道
-	inputChan := make(chan string)
-	go func() {
-		lines := strings.Split(strings.TrimSpace(menuData), "\n")
-		for _, line := range lines {
-			inputChan <- line
-		}
-		close(inputChan)
-	}()
+	// 3. 准备输入通道 (带缓冲)
+	inputChan := make(chan string, len(lines))
+	for _, line := range lines {
+		inputChan <- line
+	}
+	close(inputChan)
 	opts.Input = inputChan
 
-	// 3. 准备输出通道
+	// 4. 准备输出通道
 	outputChan := make(chan string, 1)
 	opts.Output = outputChan
 
-	// 4. 运行 fzf
+	// 5. 运行 fzf
+	// 在启动 fzf 前，必须先关闭 readline 实例以释放终端控制权
+	if app.RLInstance != nil {
+		app.RLInstance.Close()
+	}
+
 	code, err := fzf.Run(opts)
 
-	// 5. 处理结果 (参考 mdcli 退出码处理)
+	// fzf 运行结束后，重新初始化 readline 供主循环使用
+	app.RLInstance, _ = readline.NewEx(&readline.Config{
+		Prompt:          fmt.Sprintf("\n%s请选择功能 [0-17,100]: %s", ColorCyan, ColorNC),
+		InterruptPrompt: "^C",
+		EOFPrompt:       "exit",
+	})
+
+	// 6. 处理结果 (130 为取消/Esc/Ctrl-C)
 	if code == 130 {
-		// 用户取消或按下 Esc
-		return
+		return ""
 	}
 
-	if err != nil {
-		app.runMenuFallback(services, reader)
-		return
-	}
-
-	// 6. 获取选中项
+	// 7. 获取选中项
 	select {
 	case result := <-outputChan:
-		if result != "" && result != "ESC" && result != "CTRL-C" {
+		if result != "" {
 			parts := strings.Split(result, ":")
 			if len(parts) > 0 {
-				id := strings.TrimSpace(parts[0])
-				app.handleCLIInput(id, services, reader)
+				return strings.TrimSpace(parts[0])
 			}
 		}
-	default:
-		// 无输出
+	case <-time.After(50 * time.Millisecond):
 	}
+
+	return ""
 }
 
-func (app *App) runMenuFallback(services []*commands.Service, reader *bufio.Reader) {
+func (app *App) runMenuFallback(services []*commands.Service) {
 	templates := &promptui.SelectTemplates{
 		Label:    "{{ . }}",
 		Active:   "\033[0;34m▸\033[0m \033[0;36m{{ .ID | cyan }}\033[0m: {{ .Text }}",
@@ -920,5 +950,26 @@ func (app *App) runMenuFallback(services []*commands.Service, reader *bufio.Read
 		return
 	}
 
-	app.handleCLIInput(mainMenuItems[idx].ID, services, reader)
+	app.handleCLIInput(mainMenuItems[idx].ID, services)
+}
+
+// ReadInput is a helper to read input using readline
+func (app *App) ReadInput(prompt string) string {
+	if app.RLInstance == nil {
+		// Fallback if readline is not initialized
+		var input string
+		fmt.Print(prompt)
+		fmt.Scanln(&input)
+		return input
+	}
+
+	oldPrompt := app.RLInstance.Config.Prompt
+	app.RLInstance.SetPrompt(prompt)
+	defer app.RLInstance.SetPrompt(oldPrompt)
+
+	line, err := app.RLInstance.Readline()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(line)
 }

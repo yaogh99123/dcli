@@ -29,7 +29,7 @@ require (
 
 require (
 	github.com/charlievieth/fastwalk v1.0.14 // indirect
-	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e // indirect
+	github.com/chzyer/readline v1.5.1 // indirect
 	github.com/containerd/errdefs v1.0.0 // indirect
 	github.com/containerd/errdefs/pkg v0.3.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect

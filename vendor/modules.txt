@@ -13,8 +13,8 @@ github.com/OpenPeeDeeP/xdg
 github.com/charlievieth/fastwalk
 github.com/charlievieth/fastwalk/internal/dirent
 github.com/charlievieth/fastwalk/internal/fmtdirent
-# github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
-## explicit
+# github.com/chzyer/readline v1.5.1
+## explicit; go 1.15
 github.com/chzyer/readline
 # github.com/cloudfoundry/jibber_jabber v0.0.0-20151120183258-bcc4c8345a21
 ## explicit
