@@ -136,6 +136,79 @@ type TranslationSet struct {
 	FocusImages     string
 	FocusVolumes    string
 	FocusNetworks   string
+
+	// CLI strings
+	AppTitle                   string
+	LoadedFiles                string
+	DefaultComposeFile         string
+	AllServicesList            string
+	AllServicesListAll         string
+	NotRunningServicesList     string
+	RunningServicesList        string
+	StatusNotRunning           string
+	StatusRunning              string
+	StatusStopped              string
+	CommonTips                 string
+	QuickCommands              string
+	Goodbye                    string
+	SearchServiceTitle         string
+	SearchMenuTitle            string
+	SelectActionForService     string
+	ExecutingActionOnService   string
+	ExternalProjectStatusTip   string
+	ExternalProjectNoConfigTip string
+	ExternalProjectNoFixTip    string
+	ExternalProjectNoBuildTip  string
+	RepairingService           string
+	DeletingServiceImage       string
+	ConfirmCleanService        string
+	WarningStopAndRemove       string
+	ConfirmContinue            string
+	ServiceNotRunningNoLogs    string
+	ViewingServiceLogs         string
+	EnteringContainer          string
+	ActionFailed               string
+	ActionSuccess              string
+	ActionCompleted            string
+	SelectServiceTo            string
+	PromptServiceIdxName       string
+	PromptServiceAllIdxName    string
+	InputServiceNameIdx        string
+	ErrorNoMatchingService     string
+	ErrorNoStackServiceFound   string
+	ExecutingAction            string
+	ConfirmOneKeyStartStack    string
+	StartingStack              string
+	ContainsServices           string
+	CleaningDockerBuildCache   string
+	CleaningDockerBuildHistory string
+	QuickSearchPrompt          string
+	MenuFunction               string
+	WaitEnterToContinue        string
+	Build                      string
+	Clean                      string
+	Fix                        string
+
+	// Menu Items
+	MenuStartService      string
+	MenuStopService       string
+	MenuRestartService    string
+	MenuViewLogs          string
+	MenuServiceStatus     string
+	MenuServiceConfig     string
+	MenuEnterContainer    string
+	MenuBuildService      string
+	MenuForceReconstruct  string
+	MenuCleanService      string
+	MenuRemoveImage       string
+	MenuLogStack          string
+	MenuDBStack           string
+	MenuCleanBuildCache   string
+	MenuCleanBuildxCache  string
+	MenuNetworkManagement string
+	MenuVolumeManagement  string
+	MenuImageManagement   string
+	MenuRepairService     string
 }
 
 func englishSet() TranslationSet {
@@ -279,5 +352,78 @@ func englishSet() TranslationSet {
 		FocusImages:     "focus images panel",
 		FocusVolumes:    "focus volumes panel",
 		FocusNetworks:   "focus networks panel",
+
+		// CLI strings
+		AppTitle:                   "Docker Cli Service Management",
+		LoadedFiles:                "Loaded files:",
+		DefaultComposeFile:         "Default (docker-compose.yml)",
+		AllServicesList:            "All services list",
+		AllServicesListAll:         "All services list (All)",
+		NotRunningServicesList:     "Not running services list",
+		RunningServicesList:        "Running services list",
+		StatusNotRunning:           "not running",
+		StatusRunning:              "running",
+		StatusStopped:              "stopped",
+		CommonTips:                 "Common tips: 1.Start, 2.Stop, 3.Restart, 4.Logs, 0.Exit",
+		QuickCommands:              "Commands: [a]All, [r]Running, [s]Service search, [m]Menu search",
+		Goodbye:                    "Goodbye!",
+		SearchServiceTitle:         "Search all services (Supports index or name search, Esc to return)",
+		SearchMenuTitle:            "Search function menu (Esc to return)",
+		SelectActionForService:     "Select action for service [%s] (Esc to return)",
+		ExecutingActionOnService:   "Executing action [%s] on service %s...",
+		ExternalProjectStatusTip:   "This service belongs to an external project (%s), viewing runtime config via docker inspect...",
+		ExternalProjectNoConfigTip: "This service belongs to an external project and container is not running, cannot get config.",
+		ExternalProjectNoFixTip:    "This service belongs to an external project, cannot perform full fix here.",
+		ExternalProjectNoBuildTip:  "This service belongs to an external project, cannot perform build operation.",
+		RepairingService:           "Repairing service: %s...",
+		DeletingServiceImage:       "Deleting image for service %s (ID: %s)...",
+		ConfirmCleanService:        "Are you sure you want to clean service %s? (y/n): ",
+		WarningStopAndRemove:       "Warning: This will stop and remove service: %s",
+		ConfirmContinue:            "Are you sure you want to continue? (y/n): ",
+		ServiceNotRunningNoLogs:    "Warning: Service %s is not running, there might be no real-time logs.",
+		ViewingServiceLogs:         "--- Viewing service logs: %s (type 'exit' to return) ---",
+		EnteringContainer:          "--- Entering container: %s (type 'exit' to exit) ---",
+		ActionFailed:               "Failed: %v",
+		ActionSuccess:              "Success",
+		ActionCompleted:            "Action completed, press Enter to continue...",
+		SelectServiceTo:            "Select service to %s (Enter or q/0 to return): ",
+		PromptServiceIdxName:       "Enter index (e.g. 1) or name (e.g. mysql), multiple space-separated",
+		PromptServiceAllIdxName:    "Enter 'all' for all, or index (e.g. 1) or name (e.g. mysql), multiple space-separated",
+		InputServiceNameIdx:        "Service Name/Index: ",
+		ErrorNoMatchingService:     "Error: No matching service found",
+		ErrorNoStackServiceFound:   "Error: No services in stack found in current config",
+		ExecutingAction:            "Executing %s: %s...",
+		ConfirmOneKeyStartStack:    "Are you sure you want to start %s? (y/n, default n): ",
+		StartingStack:              "Starting %s...",
+		ContainsServices:           "Contains services: %s",
+		CleaningDockerBuildCache:   "Cleaning Docker build cache...",
+		CleaningDockerBuildHistory: "Cleaning Docker build history (including buildx)...",
+		QuickSearchPrompt:          "Quick search (Built-in mode, enter keywords to filter):",
+		MenuFunction:               "Function Menu:",
+		WaitEnterToContinue:        "Press Enter to continue...",
+		Build:                      "Build",
+		Clean:                      "Clean",
+		Fix:                        "Fix",
+
+		// Menu Items
+		MenuStartService:      "Start Service (All/Specified)",
+		MenuStopService:       "Stop Service (All/Specified)",
+		MenuRestartService:    "Restart Service (All/Specified)",
+		MenuViewLogs:          "View Logs (All/Specified)",
+		MenuServiceStatus:     "View Service Status (Specified)",
+		MenuServiceConfig:     "View Service Config (Specified)",
+		MenuEnterContainer:    "Enter Container (Specified)",
+		MenuBuildService:      "Build Service (All/Specified)",
+		MenuForceReconstruct:  "Force Reconstruct (All/Specified) - No Cache",
+		MenuCleanService:      "Clean Service (All/Specified)",
+		MenuRemoveImage:       "Remove Image (All/Specified)",
+		MenuLogStack:          "One-key start log monitoring stack (ELK/Graylog etc.)",
+		MenuDBStack:           "One-key start database stack (MySQL/Redis/Clickhouse)",
+		MenuCleanBuildCache:   "Clean Docker build cache",
+		MenuCleanBuildxCache:  "Clean Docker buildx cache",
+		MenuNetworkManagement: "Network Management",
+		MenuVolumeManagement:  "Volume Management",
+		MenuImageManagement:   "Image Management",
+		MenuRepairService:     "Repair Service (All/Specified) - Rebuild Image",
 	}
 }

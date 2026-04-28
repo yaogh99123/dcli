@@ -25,7 +25,7 @@ import (
 // UserConfig holds all of the user-configurable options
 type UserConfig struct {
 	// Language determines which language the UI displayed.
-	Language string `yaml:"language,omitempty"`
+	Language string `yaml:"lang,omitempty"`
 
 	// ConfirmOnQuit when enabled prompts you to confirm you want to quit when you
 	// hit esc or q when no confirmation panels are open

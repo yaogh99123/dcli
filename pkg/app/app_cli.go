@@ -12,8 +12,8 @@ import (
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/yaogh99123/dcli/pkg/commands"
-	"github.com/yaogh99123/dcli/pkg/utils"
 	"github.com/yaogh99123/dcli/pkg/manager"
+	"github.com/yaogh99123/dcli/pkg/utils"
 )
 
 type menuItem struct {
@@ -21,26 +21,28 @@ type menuItem struct {
 	Text string
 }
 
-var mainMenuItems = []menuItem{
-	{"1", "启动服务 (所有/指定)"},
-	{"2", "停止服务 (所有/指定)"},
-	{"3", "重启服务 (所有/指定)"},
-	{"4", "查看日志 (所有/指定)"},
-	{"5", "查看服务状态 (指定)"},
-	{"6", "查看服务配置 (指定)"},
-	{"7", "进入容器 (指定)"},
-	{"8", "编译服务 (所有/指定)"},
-	{"9", "强制重构 (所有/指定) - 不使用缓存"},
-	{"10", "清理服务 (所有/指定)"},
-	{"11", "删除镜像 (所有/指定)"},
-	{"12", "一键启动日志监控服务栈 (ELK/Graylog 等)"},
-	{"13", "一键启动数据库服务栈 (MySQL/Redis/Clickhouse)"},
-	{"14", "清理 Docker build 缓存"},
-	{"15", "清理 Docker buildx 缓存"},
-	{"16", "网络管理"},
-	{"17", "卷管理"},
-	{"18", "镜像管理"},
-	{"100", "修复服务 (所有/指定) - 重新构建镜像"},
+func (app *App) getMainMenuItems() []menuItem {
+	return []menuItem{
+		{"1", app.Tr.MenuStartService},
+		{"2", app.Tr.MenuStopService},
+		{"3", app.Tr.MenuRestartService},
+		{"4", app.Tr.MenuViewLogs},
+		{"5", app.Tr.MenuServiceStatus},
+		{"6", app.Tr.MenuServiceConfig},
+		{"7", app.Tr.MenuEnterContainer},
+		{"8", app.Tr.MenuBuildService},
+		{"9", app.Tr.MenuForceReconstruct},
+		{"10", app.Tr.MenuCleanService},
+		{"11", app.Tr.MenuRemoveImage},
+		{"12", app.Tr.MenuLogStack},
+		{"13", app.Tr.MenuDBStack},
+		{"14", app.Tr.MenuCleanBuildCache},
+		{"15", app.Tr.MenuCleanBuildxCache},
+		{"16", app.Tr.MenuNetworkManagement},
+		{"17", app.Tr.MenuVolumeManagement},
+		{"18", app.Tr.MenuImageManagement},
+		{"100", app.Tr.MenuRepairService},
+	}
 }
 
 // RunInteractiveCLI runs the application in interactive CLI mode
@@ -48,7 +50,7 @@ func (app *App) RunInteractiveCLI() error {
 	// 初始化 readline
 	var err error
 	app.RLInstance, err = readline.NewEx(&readline.Config{
-		Prompt:          fmt.Sprintf("%s请选择功能 [0-18,100]: %s", utils.ColorCyan, utils.ColorNC),
+		Prompt:          fmt.Sprintf("%s%s %s", utils.ColorCyan, app.Tr.InputServiceNameIdx, utils.ColorNC),
 		InterruptPrompt: "^C",
 		EOFPrompt:       "exit",
 	})
@@ -73,13 +75,13 @@ func (app *App) RunInteractiveCLI() error {
 
 		// --- 过滤逻辑开始 ---
 		var filteredServices []*commands.Service
-		listTitle := "所有服务列表"
+		listTitle := app.Tr.RunningServicesList
 
 		if app.Config.ShowAll {
 			filteredServices = services
-			listTitle = "所有服务列表 (全部)"
+			listTitle = app.Tr.AllServicesListAll
 		} else if app.Config.ShowNotRunning {
-			listTitle = "未运行服务列表"
+			listTitle = app.Tr.NotRunningServicesList
 			for _, svc := range services {
 				isRunning := false
 				if svc.Container != nil && svc.Container.Container.State == "running" {
@@ -90,7 +92,7 @@ func (app *App) RunInteractiveCLI() error {
 				}
 			}
 		} else {
-			listTitle = "正在运行服务列表"
+			listTitle = app.Tr.RunningServicesList
 			for _, svc := range services {
 				if svc.Container != nil && svc.Container.Container.State == "running" {
 					filteredServices = append(filteredServices, svc)
@@ -105,28 +107,28 @@ func (app *App) RunInteractiveCLI() error {
 
 		// 3. Render Header
 		fmt.Printf("%s========================================%s\n", utils.ColorBlue, utils.ColorNC)
-		fmt.Printf("%s      Docker Cli 服务管理%s\n", utils.ColorBlue, utils.ColorNC)
+		fmt.Printf("%s      %s%s\n", utils.ColorBlue, app.Tr.AppTitle, utils.ColorNC)
 		fmt.Printf("%s========================================%s\n", utils.ColorBlue, utils.ColorNC)
 		if len(app.DockerCommand.Config.ComposeFiles) > 0 {
-			fmt.Printf("%s加载的文件:%s\n", utils.ColorYellow, utils.ColorNC)
+			fmt.Printf("%s%s%s\n", utils.ColorYellow, app.Tr.LoadedFiles, utils.ColorNC)
 			for _, file := range app.DockerCommand.Config.ComposeFiles {
 				fmt.Printf("  - %s%s%s\n", utils.ColorCyan, file, utils.ColorNC)
 			}
 		} else {
-			fmt.Printf("%s加载的文件: 默认 (docker-compose.yml)%s\n", utils.ColorYellow, utils.ColorNC)
+			fmt.Printf("%s%s %s%s\n", utils.ColorYellow, app.Tr.LoadedFiles, app.Tr.DefaultComposeFile, utils.ColorNC)
 		}
 		fmt.Println("")
 		fmt.Printf("%s=== %s ===%s\n\n", utils.ColorBlue, listTitle, utils.ColorNC)
 
 		// 4. Render Services
 		for i, svc := range displayServices {
-			status := fmt.Sprintf("%s未运行%s", utils.ColorRed, utils.ColorNC)
+			status := fmt.Sprintf("%s%s%s", utils.ColorRed, app.Tr.StatusNotRunning, utils.ColorNC)
 			if svc.Container != nil {
 				state := svc.Container.Container.State
 				if state == "running" {
-					status = fmt.Sprintf("%s运行中%s", utils.ColorGreen, utils.ColorNC)
+					status = fmt.Sprintf("%s%s%s", utils.ColorGreen, app.Tr.StatusRunning, utils.ColorNC)
 				} else if state == "exited" {
-					status = fmt.Sprintf("%s已停止%s", utils.ColorYellow, utils.ColorNC)
+					status = fmt.Sprintf("%s%s%s", utils.ColorYellow, app.Tr.StatusStopped, utils.ColorNC)
 				} else {
 					status = fmt.Sprintf("%s%s%s", utils.ColorYellow, state, utils.ColorNC)
 				}
@@ -141,14 +143,14 @@ func (app *App) RunInteractiveCLI() error {
 
 		// 5. Render Menu
 		if app.showMenu {
-			fmt.Printf("\n%s功能菜单:%s\n", utils.ColorGreen, utils.ColorNC)
-			for _, item := range mainMenuItems {
+			fmt.Printf("\n%s%s%s\n", utils.ColorGreen, app.Tr.MenuFunction, utils.ColorNC)
+			for _, item := range app.getMainMenuItems() {
 				fmt.Printf("%4s. %s\n", item.ID, item.Text)
 			}
-			fmt.Println("  0. 退出")
+			fmt.Printf("  0. %s\n", app.Tr.Quit)
 		} else {
-			fmt.Printf("%s常用提示: 1.启动, 2.停止, 3.重启, 4.日志, 0.退出%s\n", utils.ColorYellow, utils.ColorNC)
-			fmt.Printf("%s快捷指令: [a]全部, [r]运行中, [s]服务搜索, [m]菜单搜索%s\n", utils.ColorYellow, utils.ColorNC)
+			fmt.Printf("%s%s%s\n", utils.ColorYellow, app.Tr.CommonTips, utils.ColorNC)
+			fmt.Printf("%s%s%s\n", utils.ColorYellow, app.Tr.QuickCommands, utils.ColorNC)
 		}
 
 		// 6. Read input using Readline
@@ -170,7 +172,7 @@ func (app *App) RunInteractiveCLI() error {
 
 		input := strings.TrimSpace(line)
 		if input == "0" || input == "exit" || input == "quit" {
-			fmt.Printf("%s再见!%s\n", utils.ColorGreen, utils.ColorNC)
+			fmt.Printf("%s%s%s\n", utils.ColorGreen, app.Tr.Goodbye, utils.ColorNC)
 			break
 		}
 
@@ -241,11 +243,11 @@ func (app *App) handleCLIInput(choice string, services []*commands.Service, allS
 			return s.Restart()
 		})
 	case "4":
-		app.doServiceAction("查看日志", services, true, false, func(s *commands.Service) error {
+		app.doServiceAction(app.Tr.ViewLogs, services, true, false, func(s *commands.Service) error {
 			if s.Container == nil {
-				fmt.Printf("%s警告: 服务 %s 未运行，可能无实时日志。%s\n", utils.ColorYellow, s.Name, utils.ColorNC)
+				fmt.Printf("%s%s%s\n", utils.ColorYellow, fmt.Sprintf(app.Tr.ServiceNotRunningNoLogs, s.Name), utils.ColorNC)
 			}
-			fmt.Printf("\n%s--- 正在查看服务日志: %s (输入 'exit' 返回主菜单) ---%s\n", utils.ColorBlue, s.Name, utils.ColorNC)
+			fmt.Printf("\n%s%s%s\n", utils.ColorBlue, fmt.Sprintf(app.Tr.ViewingServiceLogs, s.Name), utils.ColorNC)
 			cmd, err := s.ViewLogs()
 			if err != nil {
 				return err
@@ -254,8 +256,8 @@ func (app *App) handleCLIInput(choice string, services []*commands.Service, allS
 			return nil
 		})
 	case "5":
-		app.doServiceAction("查看状态", services, false, false, func(s *commands.Service) error {
-			fmt.Printf("%s=== 服务状态: %s ===%s\n", utils.ColorBlue, s.Name, utils.ColorNC)
+		app.doServiceAction(app.Tr.MenuServiceStatus, services, false, false, func(s *commands.Service) error {
+			fmt.Printf("%s%s%s\n", utils.ColorBlue, fmt.Sprintf(app.Tr.StatusRunning+": %s", s.Name), utils.ColorNC)
 			commandObj := app.DockerCommand.NewCommandObject(commands.CommandObject{Service: s})
 			fullCmd := fmt.Sprintf("%s ps %s", commandObj.DockerCompose, s.Name)
 			cmd := exec.Command("sh", "-c", fullCmd)
@@ -263,19 +265,19 @@ func (app *App) handleCLIInput(choice string, services []*commands.Service, allS
 			return nil
 		})
 	case "6":
-		app.doServiceAction("查看配置", services, false, false, func(s *commands.Service) error {
+		app.doServiceAction(app.Tr.MenuServiceConfig, services, false, false, func(s *commands.Service) error {
 			if !s.IsLocal {
 				if s.Container == nil {
-					fmt.Printf("%s提示: 该服务属于外部项目且容器未运行，无法获取配置。%s\n", utils.ColorYellow, utils.ColorNC)
-					app.ReadInput("\n按回车键继续...")
+					fmt.Printf("%s%s%s\n", utils.ColorYellow, app.Tr.ExternalProjectNoConfigTip, utils.ColorNC)
+					app.ReadInput("\n" + app.Tr.WaitEnterToContinue)
 					return nil
 				}
-				fmt.Printf("%s提示: 该服务属于外部项目 (%s)，正在通过 docker inspect 查看运行时配置...%s\n", utils.ColorYellow, s.ProjectName, utils.ColorNC)
+				fmt.Printf("%s%s%s\n", utils.ColorYellow, fmt.Sprintf(app.Tr.ExternalProjectStatusTip, s.ProjectName), utils.ColorNC)
 				cmd := exec.Command("sh", "-c", "docker inspect "+s.Container.ID)
 				_ = app.runSubprocessWithQuitKey(cmd)
 				return nil
 			}
-			fmt.Printf("%s=== 服务配置: %s ===%s\n", utils.ColorBlue, s.Name, utils.ColorNC)
+			fmt.Printf("%s%s: %s%s\n", utils.ColorBlue, app.Tr.MenuServiceConfig, s.Name, utils.ColorNC)
 			commandObj := app.DockerCommand.NewCommandObject(commands.CommandObject{Service: s})
 			fullCmd := fmt.Sprintf("%s config %s", commandObj.DockerCompose, s.Name)
 			cmd := exec.Command("sh", "-c", fullCmd)
@@ -283,11 +285,11 @@ func (app *App) handleCLIInput(choice string, services []*commands.Service, allS
 			return nil
 		})
 	case "7":
-		app.doServiceAction("进入容器", services, false, false, func(s *commands.Service) error {
+		app.doServiceAction(app.Tr.MenuEnterContainer, services, false, false, func(s *commands.Service) error {
 			if s.Container == nil {
-				return fmt.Errorf("服务 %s 未运行", s.Name)
+				return fmt.Errorf("%s %s", s.Name, app.Tr.StatusNotRunning)
 			}
-			fmt.Printf("%s--- 正在进入容器: %s (输入 'exit' 退出) ---%s\n", utils.ColorBlue, s.Name, utils.ColorNC)
+			fmt.Printf("%s%s%s\n", utils.ColorBlue, fmt.Sprintf(app.Tr.EnteringContainer, s.Name), utils.ColorNC)
 
 			checkCmd := exec.Command("docker", "exec", s.Container.ID, "which", "bash")
 			shell := "sh"
@@ -298,10 +300,10 @@ func (app *App) handleCLIInput(choice string, services []*commands.Service, allS
 			return app.runInteractiveSubprocess(cmd)
 		})
 	case "8":
-		app.doServiceAction("编译(更新服务)", services, true, false, func(s *commands.Service) error {
+		app.doServiceAction(app.Tr.Build, services, true, false, func(s *commands.Service) error {
 			if !s.IsLocal {
-				fmt.Printf("%s提示: 该服务属于外部项目，无法执行编译操作。%s\n", utils.ColorYellow, utils.ColorNC)
-				app.ReadInput("\n按回车键继续...")
+				fmt.Printf("%s%s%s\n", utils.ColorYellow, app.Tr.ExternalProjectNoBuildTip, utils.ColorNC)
+				app.ReadInput("\n" + app.Tr.WaitEnterToContinue)
 				return nil
 			}
 			commandObj := app.DockerCommand.NewCommandObject(commands.CommandObject{Service: s})
@@ -324,9 +326,9 @@ func (app *App) handleCLIInput(choice string, services []*commands.Service, allS
 			return nil
 		})
 	case "10":
-		app.doServiceAction("清理", services, true, true, func(s *commands.Service) error {
-			fmt.Printf("%s警告: 这将停止并删除服务: %s%s\n", utils.ColorYellow, s.Name, utils.ColorNC)
-			confirm := app.ReadInput("确定要继续吗? (y/n): ")
+		app.doServiceAction(app.Tr.Clean, services, true, true, func(s *commands.Service) error {
+			fmt.Printf("%s%s%s\n", utils.ColorYellow, fmt.Sprintf(app.Tr.WarningStopAndRemove, s.Name), utils.ColorNC)
+			confirm := app.ReadInput(app.Tr.ConfirmContinue)
 			if strings.ToLower(strings.TrimSpace(confirm)) != "y" {
 				return nil
 			}
@@ -337,28 +339,28 @@ func (app *App) handleCLIInput(choice string, services []*commands.Service, allS
 			return s.Remove(container.RemoveOptions{Force: true})
 		})
 	case "11":
-		app.doServiceAction("删除镜像", services, true, false, func(s *commands.Service) error {
+		app.doServiceAction(app.Tr.RemoveImage, services, true, false, func(s *commands.Service) error {
 			if s.Container == nil {
-				return fmt.Errorf("无法获取服务 %s 的快照信息", s.Name)
+				return fmt.Errorf(app.Tr.NoContainerForService)
 			}
 			imageID := s.Container.Container.ImageID
-			fmt.Printf("%s正在删除服务 %s 的镜像 (ID: %s)...%s\n", utils.ColorYellow, s.Name, imageID, utils.ColorNC)
+			fmt.Printf("%s%s%s\n", utils.ColorYellow, fmt.Sprintf(app.Tr.DeletingServiceImage, s.Name, imageID), utils.ColorNC)
 			cmd := exec.Command("docker", "rmi", "-f", imageID)
 			_ = app.runSubprocessWithQuitKey(cmd)
 			return nil
 		})
 	case "12":
 		stack := []string{"zookeeper", "kafka", "elasticsearch", "filebeat", "go-stash", "jaeger", "grafana"}
-		app.runStackAction("日志监控服务栈", stack, services)
+		app.runStackAction(app.Tr.MenuLogStack, stack, services)
 	case "13":
 		stack := []string{"clickhouse", "mysql", "redis"}
-		app.runStackAction("数据库服务栈", stack, services)
+		app.runStackAction(app.Tr.MenuDBStack, stack, services)
 	case "14":
-		fmt.Printf("\n%s正在清理 Docker 构建缓存...%s\n", utils.ColorBlue, utils.ColorNC)
+		fmt.Printf("\n%s%s%s\n", utils.ColorBlue, app.Tr.CleaningDockerBuildCache, utils.ColorNC)
 		cmd := exec.Command("docker", "builder", "prune", "-f")
 		_ = app.runSubprocessWithQuitKey(cmd)
 	case "15":
-		fmt.Printf("\n%s正在清理 Docker 构建历史(含 buildx)...%s\n", utils.ColorBlue, utils.ColorNC)
+		fmt.Printf("\n%s%s%s\n", utils.ColorBlue, app.Tr.CleaningDockerBuildHistory, utils.ColorNC)
 		cmd := exec.Command("docker", "builder", "prune", "-af")
 		_ = app.runSubprocessWithQuitKey(cmd)
 	case "16":
@@ -368,13 +370,13 @@ func (app *App) handleCLIInput(choice string, services []*commands.Service, allS
 	case "18":
 		manager.RunImageMenu(app.DockerCommand, app.ReadInput, app.runInteractiveSubprocess)
 	case "100":
-		app.doServiceAction("修复", services, true, false, func(s *commands.Service) error {
+		app.doServiceAction(app.Tr.Fix, services, true, false, func(s *commands.Service) error {
 			if !s.IsLocal {
-				fmt.Printf("%s提示: 该服务属于外部项目，无法在此执行全面修复。%s\n", utils.ColorYellow, utils.ColorNC)
-				app.ReadInput("\n按回车键继续...")
+				fmt.Printf("%s%s%s\n", utils.ColorYellow, app.Tr.ExternalProjectNoFixTip, utils.ColorNC)
+				app.ReadInput("\n" + app.Tr.WaitEnterToContinue)
 				return nil
 			}
-			fmt.Printf("%s正在全面修复服务: %s...%s\n", utils.ColorYellow, s.Name, utils.ColorNC)
+			fmt.Printf("%s%s%s\n", utils.ColorYellow, fmt.Sprintf(app.Tr.RepairingService, s.Name), utils.ColorNC)
 			if s.Container != nil {
 				_ = s.Stop()
 				_ = s.Remove(container.RemoveOptions{Force: true})
@@ -389,14 +391,14 @@ func (app *App) handleCLIInput(choice string, services []*commands.Service, allS
 }
 
 func (app *App) doServiceAction(actionName string, services []*commands.Service, allowAll bool, waitForEnter bool, action func(*commands.Service) error) {
-	fmt.Printf("\n%s选择要%s的服务（直接按回车或输入 q/0 返回主菜单）：%s\n", utils.ColorYellow, actionName, utils.ColorNC)
-	promptHint := "输入数字索引 (如: 1) 或服务名 (如: mysql)，多个用空格分隔"
+	fmt.Printf("\n%s%s%s\n", utils.ColorYellow, fmt.Sprintf(app.Tr.SelectServiceTo, actionName), utils.ColorNC)
+	promptHint := app.Tr.PromptServiceIdxName
 	if allowAll {
-		promptHint = "输入 'all' 选择所有服务，或输入数字索引 (如: 1) 或服务名 (如: mysql)，多个用空格分隔"
+		promptHint = app.Tr.PromptServiceAllIdxName
 	}
 	fmt.Println(promptHint)
 
-	input := app.ReadInput("服务名/索引：")
+	input := app.ReadInput(app.Tr.InputServiceNameIdx)
 	if input == "" || input == "q" || input == "0" {
 		return
 	}
@@ -428,29 +430,29 @@ func (app *App) doServiceAction(actionName string, services []*commands.Service,
 	}
 
 	for _, s := range targets {
-		fmt.Printf("\n%s正在执行 %s: %s...%s\n", utils.ColorBlue, actionName, s.Name, utils.ColorNC)
+		fmt.Printf("\n%s%s%s\n", utils.ColorBlue, fmt.Sprintf(app.Tr.ExecutingAction, actionName, s.Name), utils.ColorNC)
 		if err := action(s); err != nil {
-			fmt.Printf("%s失败: %v%s\n", utils.ColorRed, err, utils.ColorNC)
+			fmt.Printf("%s%s%s\n", utils.ColorRed, fmt.Sprintf(app.Tr.ActionFailed, err), utils.ColorNC)
 		} else {
-			fmt.Printf("%s成功%s\n", utils.ColorGreen, utils.ColorNC)
+			fmt.Printf("%s%s%s\n", utils.ColorGreen, app.Tr.ActionSuccess, utils.ColorNC)
 		}
 	}
 
 	if waitForEnter {
 		fmt.Println()
-		app.ReadInput(fmt.Sprintf("%s操作完成，按 Enter 继续...%s", utils.ColorYellow, utils.ColorNC))
+		app.ReadInput(fmt.Sprintf("%s%s%s", utils.ColorYellow, app.Tr.ActionCompleted, utils.ColorNC))
 	}
 }
 
 func (app *App) runStackAction(stackName string, stack []string, services []*commands.Service) {
-	fmt.Printf("\n%s确定要一键启动%s吗? (y/n, 默认为 n): %s", utils.ColorBlue, stackName, utils.ColorNC)
+	fmt.Printf("\n%s%s%s", utils.ColorBlue, fmt.Sprintf(app.Tr.ConfirmOneKeyStartStack, stackName), utils.ColorNC)
 	confirm := app.ReadInput("")
 	if strings.ToLower(strings.TrimSpace(confirm)) != "y" {
 		return
 	}
 
-	fmt.Printf("\n%s正在启动%s...%s\n", utils.ColorBlue, stackName, utils.ColorNC)
-	fmt.Printf("%s包含服务: %s%s\n", utils.ColorYellow, strings.Join(stack, ", "), utils.ColorNC)
+	fmt.Printf("\n%s%s%s\n", utils.ColorBlue, fmt.Sprintf(app.Tr.StartingStack, stackName), utils.ColorNC)
+	fmt.Printf("%s%s%s\n", utils.ColorYellow, fmt.Sprintf(app.Tr.ContainsServices, strings.Join(stack, ", ")), utils.ColorNC)
 
 	var targets []*commands.Service
 	for _, name := range stack {
@@ -463,12 +465,12 @@ func (app *App) runStackAction(stackName string, stack []string, services []*com
 	}
 
 	if len(targets) == 0 {
-		fmt.Printf("%s错误: 栈内服务均未在当前配置中找到%s\n", utils.ColorRed, utils.ColorNC)
+		fmt.Printf("%s%s%s\n", utils.ColorRed, app.Tr.ErrorNoStackServiceFound, utils.ColorNC)
 		return
 	}
 
 	for _, s := range targets {
-		fmt.Printf("启动 %s...\n", s.Name)
+		fmt.Printf("%s %s...\n", app.Tr.Start, s.Name)
 		_ = s.Up()
 	}
 }
@@ -482,15 +484,16 @@ func (app *App) runMenuFallback(services []*commands.Service, allServices []*com
 	}
 
 	searcher := func(input string, index int) bool {
-		item := mainMenuItems[index]
+		items := app.getMainMenuItems()
+		item := items[index]
 		content := strings.ToLower(item.ID + " " + item.Text)
 		input = strings.ToLower(strings.TrimSpace(input))
 		return strings.Contains(content, input)
 	}
 
 	prompt := promptui.Select{
-		Label:     "快捷搜索 (内置模式, 输入关键字筛选):",
-		Items:     mainMenuItems,
+		Label:     app.Tr.QuickSearchPrompt,
+		Items:     app.getMainMenuItems(),
 		Templates: templates,
 		Size:      10,
 		Searcher:  searcher,
@@ -501,13 +504,12 @@ func (app *App) runMenuFallback(services []*commands.Service, allServices []*com
 		return
 	}
 
-	app.handleCLIInput(mainMenuItems[idx].ID, services, allServices)
+	app.handleCLIInput(app.getMainMenuItems()[idx].ID, services, allServices)
 }
-
 
 func (app *App) runActionFzf(serviceName string) string {
 	var lines []string
-	for _, item := range mainMenuItems {
+	for _, item := range app.getMainMenuItems() {
 		idNum := 0
 		_, _ = fmt.Sscanf(item.ID, "%d", &idNum)
 		if idNum >= 1 && idNum <= 11 {
@@ -515,11 +517,13 @@ func (app *App) runActionFzf(serviceName string) string {
 			text := item.Text
 			text = strings.ReplaceAll(text, " (所有/指定)", "")
 			text = strings.ReplaceAll(text, " (指定)", "")
+			text = strings.ReplaceAll(text, " (All/Specified)", "")
+			text = strings.ReplaceAll(text, " (Specified)", "")
 			lines = append(lines, fmt.Sprintf("%s: %s", item.ID, text))
 		}
 	}
 
-	result := app.runFzfSelect("选择对服务 ["+serviceName+"] 执行的操作 (Esc 返回)", lines)
+	result := app.runFzfSelect(fmt.Sprintf(app.Tr.SelectActionForService, serviceName), lines)
 	return app.parseFzfResult(result)
 }
 
@@ -528,7 +532,7 @@ func (app *App) executeActionOnService(actionID string, s *commands.Service, all
 		return
 	}
 
-	fmt.Printf("\n%s正在对服务 %s 执行操作 [%s]...%s\n", utils.ColorCyan, s.Name, actionID, utils.ColorNC)
+	fmt.Printf("\n%s%s%s\n", utils.ColorCyan, fmt.Sprintf(app.Tr.ExecutingActionOnService, s.Name, actionID), utils.ColorNC)
 
 	switch actionID {
 	case "1":
@@ -610,29 +614,29 @@ func (app *App) executeActionOnService(actionID string, s *commands.Service, all
 		}
 	}
 
-	app.ReadInput("\n按回车键继续...")
+	app.ReadInput("\n" + app.Tr.WaitEnterToContinue)
 }
 
 func (app *App) runMenuSearchFzf() string {
 	var lines []string
-	for _, item := range mainMenuItems {
+	for _, item := range app.getMainMenuItems() {
 		lines = append(lines, fmt.Sprintf("%s: %s", item.ID, item.Text))
 	}
 
-	result := app.runFzfSelect("搜索功能菜单 (Esc 返回)", lines)
+	result := app.runFzfSelect(app.Tr.SearchMenuTitle, lines)
 	return app.parseFzfResult(result)
 }
 
 func (app *App) runServiceSearchFzf(allServices []*commands.Service) string {
 	var lines []string
 	for i, s := range allServices {
-		status := "已停止"
+		status := app.Tr.StatusStopped
 		if s.Container != nil && s.Container.Container.State == "running" {
-			status = "运行中"
+			status = app.Tr.StatusRunning
 		}
-		lines = append(lines, fmt.Sprintf("%d. %s: 服务 (%s)", i+1, s.Name, status))
+		lines = append(lines, fmt.Sprintf("%d. %s: %s (%s)", i+1, s.Name, app.Tr.ServicesTitle, status))
 	}
 
-	result := app.runFzfSelect("搜索所有服务 (支持序号或名称搜索, Esc 返回)", lines)
+	result := app.runFzfSelect(app.Tr.SearchServiceTitle, lines)
 	return app.parseFzfResult(result)
 }
