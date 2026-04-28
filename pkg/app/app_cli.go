@@ -73,10 +73,12 @@ func (app *App) RunInteractiveCLI() error {
 
 	for {
 		// 1. Refresh data
-		_, services, err := app.DockerCommand.RefreshContainersAndServices(nil)
+		_, allServices, err := app.DockerCommand.RefreshContainersAndServices(nil)
 		if err != nil {
 			return err
 		}
+		services := make([]*commands.Service, len(allServices))
+		copy(services, allServices)
 
 		// 按服务名称排序，确保序列稳定
 		sort.Slice(services, func(i, j int) bool {
@@ -109,7 +111,7 @@ func (app *App) RunInteractiveCLI() error {
 				}
 			}
 		}
-		services = filteredServices
+		displayServices := filteredServices
 		// --- 过滤逻辑结束 ---
 
 		// 2. Clear screen
@@ -131,7 +133,7 @@ func (app *App) RunInteractiveCLI() error {
 		fmt.Printf("%s=== %s ===%s\n\n", ColorBlue, listTitle, ColorNC)
 
 		// 4. Render Services
-		for i, svc := range services {
+		for i, svc := range displayServices {
 			status := fmt.Sprintf("%s未运行%s", ColorRed, ColorNC)
 			if svc.Container != nil {
 				state := svc.Container.Container.State
@@ -162,7 +164,7 @@ func (app *App) RunInteractiveCLI() error {
 			// 这里我们保持状态，在 handleCLIInput 中处理重置
 		} else {
 			fmt.Printf("%s常用提示: 1.启动, 2.停止, 3.重启, 4.日志, 0.退出%s\n", ColorYellow, ColorNC)
-			fmt.Printf("%s快捷指令: [a]全部, [r]运行中, [s]搜索, [menu]菜单%s\n", ColorYellow, ColorNC)
+			fmt.Printf("%s快捷指令: [a]全部, [r]运行中, [s]服务搜索, [m]菜单搜索, [menu]菜单%s\n", ColorYellow, ColorNC)
 		}
 
 		// 6. Read input using Readline
@@ -188,13 +190,13 @@ func (app *App) RunInteractiveCLI() error {
 			break
 		}
 
-		app.handleCLIInput(input, services)
+		app.handleCLIInput(input, displayServices, allServices)
 	}
 
 	return nil
 }
 
-func (app *App) handleCLIInput(choice string, services []*commands.Service) {
+func (app *App) handleCLIInput(choice string, services []*commands.Service, allServices []*commands.Service) {
 	// 每次输入操作后，默认隐藏菜单（除非显式请求显示）
 	defer func() {
 		if choice != "menu" {
@@ -208,12 +210,30 @@ func (app *App) handleCLIInput(choice string, services []*commands.Service) {
 	}
 
 	if choice == "s" || choice == "search" {
-		selected := app.runMenuFzf(services)
+		selected := app.runServiceSearchFzf(allServices)
 		if selected != "" {
-			// 在处理新输入前，可以简单输出一下，确保用户知道当前状态
-			app.handleCLIInput(selected, services)
+			app.handleCLIInput(selected, services, allServices)
 		}
 		return
+	}
+
+	if choice == "m" || choice == "menu_search" {
+		selected := app.runMenuSearchFzf()
+		if selected != "" {
+			app.handleCLIInput(selected, services, allServices)
+		}
+		return
+	}
+
+	// 检查是否选择了具体的服务名称
+	for _, s := range allServices {
+		if s.Name == choice {
+			actionID := app.runActionFzf(s.Name)
+			if actionID != "" {
+				app.executeActionOnService(actionID, s, allServices)
+			}
+			return
+		}
 	}
 
 	switch choice {
@@ -924,7 +944,7 @@ func (app *App) runMenuFzf(services []*commands.Service) string {
 	return ""
 }
 
-func (app *App) runMenuFallback(services []*commands.Service) {
+func (app *App) runMenuFallback(services []*commands.Service, allServices []*commands.Service) {
 	templates := &promptui.SelectTemplates{
 		Label:    "{{ . }}",
 		Active:   "\033[0;34m▸\033[0m \033[0;36m{{ .ID | cyan }}\033[0m: {{ .Text }}",
@@ -952,7 +972,7 @@ func (app *App) runMenuFallback(services []*commands.Service) {
 		return
 	}
 
-	app.handleCLIInput(mainMenuItems[idx].ID, services)
+	app.handleCLIInput(mainMenuItems[idx].ID, services, allServices)
 }
 
 // ReadInput is a helper to read input using readline
@@ -974,4 +994,272 @@ func (app *App) ReadInput(prompt string) string {
 		return ""
 	}
 	return strings.TrimSpace(line)
+}
+
+// runActionFzf 针对特定服务展示操作菜单搜索
+func (app *App) runActionFzf(serviceName string) string {
+	var menuBuilder strings.Builder
+	for _, item := range mainMenuItems {
+		// 过滤掉一些不适合单服务操作的全局项 (可选)
+		menuBuilder.WriteString(fmt.Sprintf("%s: %s\n", item.ID, item.Text))
+	}
+	menuData := strings.TrimSpace(menuBuilder.String())
+	lines := strings.Split(menuData, "\n")
+
+	fzfArgs := []string{
+		"--height=40%",
+		"--reverse",
+		"--header=选择对服务 [" + serviceName + "] 执行的操作 (Esc 返回)",
+		"--cycle",
+	}
+
+	opts, err := fzf.ParseOptions(true, fzfArgs)
+	if err != nil {
+		return ""
+	}
+
+	inputChan := make(chan string, len(lines))
+	for _, line := range lines {
+		inputChan <- line
+	}
+	close(inputChan)
+	opts.Input = inputChan
+
+	outputChan := make(chan string, 1)
+	opts.Output = outputChan
+
+	// 启动前释放控制权
+	if app.RLInstance != nil {
+		app.RLInstance.Close()
+	}
+
+	code, _ := fzf.Run(opts)
+
+	// 恢复控制权
+	app.RLInstance, _ = readline.NewEx(&readline.Config{
+		Prompt:          fmt.Sprintf("%s请选择功能 [0-17,100]: %s", ColorCyan, ColorNC),
+		InterruptPrompt: "^C",
+		EOFPrompt:       "exit",
+	})
+
+	if code == 130 {
+		return ""
+	}
+
+	select {
+	case result := <-outputChan:
+		if result != "" {
+			parts := strings.Split(result, ":")
+			if len(parts) > 0 {
+				return strings.TrimSpace(parts[0])
+			}
+		}
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	return ""
+}
+
+// executeActionOnService 对单个服务执行指定 ID 的操作
+func (app *App) executeActionOnService(actionID string, s *commands.Service, allServices []*commands.Service) {
+	if actionID == "" {
+		return
+	}
+
+	fmt.Printf("\n%s正在对服务 %s 执行操作 [%s]...%s\n", ColorCyan, s.Name, actionID, ColorNC)
+
+	switch actionID {
+	case "1":
+		_ = s.Up()
+	case "2":
+		_ = s.Stop()
+	case "3":
+		_ = s.Restart()
+	case "4":
+		fmt.Printf("\n%s--- 正在查看服务日志: %s (输入 'exit' 返回主菜单) ---%s\n", ColorBlue, s.Name, ColorNC)
+		cmd, err := s.ViewLogs()
+		if err == nil {
+			_ = app.runSubprocessWithQuitKey(cmd)
+		}
+	case "5":
+		commandObj := app.DockerCommand.NewCommandObject(commands.CommandObject{Service: s})
+		fullCmd := fmt.Sprintf("%s ps %s", commandObj.DockerCompose, s.Name)
+		cmd := exec.Command("sh", "-c", fullCmd)
+		_ = app.runSubprocessWithQuitKey(cmd)
+	case "6":
+		if !s.IsLocal && s.Container != nil {
+			cmd := exec.Command("sh", "-c", "docker inspect "+s.Container.ID)
+			_ = app.runSubprocessWithQuitKey(cmd)
+		} else if s.IsLocal {
+			commandObj := app.DockerCommand.NewCommandObject(commands.CommandObject{Service: s})
+			fullCmd := fmt.Sprintf("%s config %s", commandObj.DockerCompose, s.Name)
+			cmd := exec.Command("sh", "-c", fullCmd)
+			_ = app.runSubprocessWithQuitKey(cmd)
+		}
+	case "7":
+		if s.Container != nil {
+			fmt.Printf("%s--- 正在进入容器: %s (输入 'exit' 退出) ---%s\n", ColorBlue, s.Name, ColorNC)
+			checkCmd := exec.Command("docker", "exec", s.Container.ID, "which", "bash")
+			shell := "sh"
+			if err := checkCmd.Run(); err == nil {
+				shell = "bash"
+			}
+			cmd := exec.Command("docker", "exec", "-it", s.Container.ID, shell)
+			_ = app.runInteractiveSubprocess(cmd)
+		}
+	case "8":
+		if s.IsLocal {
+			commandObj := app.DockerCommand.NewCommandObject(commands.CommandObject{Service: s})
+			fullCmd := fmt.Sprintf("%s pull %s && %s build --no-cache %s", commandObj.DockerCompose, s.Name, commandObj.DockerCompose, s.Name)
+			cmd := exec.Command("sh", "-c", fullCmd)
+			_ = app.runSubprocessWithQuitKey(cmd)
+		}
+	case "9":
+		fmt.Printf("%s确定要清理服务 %s 吗? (y/n): %s", ColorYellow, s.Name, ColorNC)
+		if strings.ToLower(app.ReadInput("")) == "y" {
+			_ = s.Stop()
+			_ = s.Remove(container.RemoveOptions{Force: true})
+		}
+	case "10":
+		if s.Container != nil {
+			imageID := s.Container.Container.ImageID
+			cmd := exec.Command("docker", "rmi", "-f", imageID)
+			_ = app.runSubprocessWithQuitKey(cmd)
+		}
+	case "100":
+		if s.IsLocal {
+			fmt.Printf("%s正在全面修复服务: %s...%s\n", ColorYellow, s.Name, ColorNC)
+			if s.Container != nil {
+				_ = s.Stop()
+				_ = s.Remove(container.RemoveOptions{Force: true})
+				_ = exec.Command("docker", "rmi", "-f", s.Container.Container.ImageID).Run()
+			}
+			commandObj := app.DockerCommand.NewCommandObject(commands.CommandObject{Service: s})
+			buildCmd := fmt.Sprintf("%s build --no-cache %s", commandObj.DockerCompose, s.Name)
+			_ = exec.Command("sh", "-c", buildCmd).Run()
+			_ = s.Up()
+		}
+	}
+	
+	app.ReadInput("\n按回车键继续...")
+}
+
+// runMenuSearchFzf 仅搜索主菜单项
+func (app *App) runMenuSearchFzf() string {
+	var menuBuilder strings.Builder
+	for _, item := range mainMenuItems {
+		menuBuilder.WriteString(fmt.Sprintf("%s: %s\n", item.ID, item.Text))
+	}
+	lines := strings.Split(strings.TrimSpace(menuBuilder.String()), "\n")
+
+	fzfArgs := []string{
+		"--height=40%",
+		"--reverse",
+		"--header=搜索功能菜单 (Esc 返回)",
+	}
+
+	opts, err := fzf.ParseOptions(true, fzfArgs)
+	if err != nil {
+		return ""
+	}
+
+	inputChan := make(chan string, len(lines))
+	for _, line := range lines {
+		inputChan <- line
+	}
+	close(inputChan)
+	opts.Input = inputChan
+
+	outputChan := make(chan string, 1)
+	opts.Output = outputChan
+
+	if app.RLInstance != nil {
+		app.RLInstance.Close()
+	}
+
+	code, _ := fzf.Run(opts)
+
+	app.RLInstance, _ = readline.NewEx(&readline.Config{
+		Prompt:          fmt.Sprintf("%s请选择功能 [0-17,100]: %s", ColorCyan, ColorNC),
+		InterruptPrompt: "^C",
+		EOFPrompt:       "exit",
+	})
+
+	if code == 130 {
+		return ""
+	}
+
+	select {
+	case result := <-outputChan:
+		if result != "" {
+			parts := strings.Split(result, ":")
+			if len(parts) > 0 {
+				return strings.TrimSpace(parts[0])
+			}
+		}
+	case <-time.After(50 * time.Millisecond):
+	}
+	return ""
+}
+
+// runServiceSearchFzf 仅搜索服务列表（包含所有服务）
+func (app *App) runServiceSearchFzf(allServices []*commands.Service) string {
+	var menuBuilder strings.Builder
+	for _, s := range allServices {
+		status := "已停止"
+		if s.Container != nil && s.Container.Container.State == "running" {
+			status = "运行中"
+		}
+		menuBuilder.WriteString(fmt.Sprintf("%s: 服务 (%s)\n", s.Name, status))
+	}
+	lines := strings.Split(strings.TrimSpace(menuBuilder.String()), "\n")
+
+	fzfArgs := []string{
+		"--height=40%",
+		"--reverse",
+		"--header=搜索所有服务 (Esc 返回)",
+	}
+
+	opts, err := fzf.ParseOptions(true, fzfArgs)
+	if err != nil {
+		return ""
+	}
+
+	inputChan := make(chan string, len(lines))
+	for _, line := range lines {
+		inputChan <- line
+	}
+	close(inputChan)
+	opts.Input = inputChan
+
+	outputChan := make(chan string, 1)
+	opts.Output = outputChan
+
+	if app.RLInstance != nil {
+		app.RLInstance.Close()
+	}
+
+	code, _ := fzf.Run(opts)
+
+	app.RLInstance, _ = readline.NewEx(&readline.Config{
+		Prompt:          fmt.Sprintf("%s请选择功能 [0-17,100]: %s", ColorCyan, ColorNC),
+		InterruptPrompt: "^C",
+		EOFPrompt:       "exit",
+	})
+
+	if code == 130 {
+		return ""
+	}
+
+	select {
+	case result := <-outputChan:
+		if result != "" {
+			parts := strings.Split(result, ":")
+			if len(parts) > 0 {
+				return strings.TrimSpace(parts[0])
+			}
+		}
+	case <-time.After(50 * time.Millisecond):
+	}
+	return ""
 }
