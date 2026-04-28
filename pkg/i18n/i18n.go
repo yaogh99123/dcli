@@ -48,15 +48,8 @@ func NewTranslationSet(log *logrus.Entry, language string) *TranslationSet {
 // GetTranslationSets gets all the translation sets, keyed by language code
 func GetTranslationSets() map[string]TranslationSet {
 	return map[string]TranslationSet{
-		"pl": polishSet(),
-		"nl": dutchSet(),
-		"de": germanSet(),
-		"tr": turkishSet(),
 		"en": englishSet(),
-		"fr": frenchSet(),
 		"zh": chineseSet(),
-		"es": spanishSet(),
-		"pt": portugueseSet(),
 	}
 }
 
