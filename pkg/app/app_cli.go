@@ -11,6 +11,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
 	"github.com/chzyer/readline"
 
 	fzf "github.com/junegunn/fzf/src"
@@ -164,7 +165,7 @@ func (app *App) RunInteractiveCLI() error {
 			// 这里我们保持状态，在 handleCLIInput 中处理重置
 		} else {
 			fmt.Printf("%s常用提示: 1.启动, 2.停止, 3.重启, 4.日志, 0.退出%s\n", ColorYellow, ColorNC)
-			fmt.Printf("%s快捷指令: [a]全部, [r]运行中, [s]服务搜索, [m]菜单搜索, [menu]菜单%s\n", ColorYellow, ColorNC)
+			fmt.Printf("%s快捷指令: [a]全部, [r]运行中, [s]服务搜索, [m]菜单搜索%s\n", ColorYellow, ColorNC)
 		}
 
 		// 6. Read input using Readline
@@ -1140,7 +1141,7 @@ func (app *App) executeActionOnService(actionID string, s *commands.Service, all
 			_ = s.Up()
 		}
 	}
-	
+
 	app.ReadInput("\n按回车键继续...")
 }
 
@@ -1205,19 +1206,20 @@ func (app *App) runMenuSearchFzf() string {
 // runServiceSearchFzf 仅搜索服务列表（包含所有服务）
 func (app *App) runServiceSearchFzf(allServices []*commands.Service) string {
 	var menuBuilder strings.Builder
-	for _, s := range allServices {
+	for i, s := range allServices {
 		status := "已停止"
 		if s.Container != nil && s.Container.Container.State == "running" {
 			status = "运行中"
 		}
-		menuBuilder.WriteString(fmt.Sprintf("%s: 服务 (%s)\n", s.Name, status))
+		// 增加序号，方便搜索和识别
+		menuBuilder.WriteString(fmt.Sprintf("%d. %s: 服务 (%s)\n", i+1, s.Name, status))
 	}
 	lines := strings.Split(strings.TrimSpace(menuBuilder.String()), "\n")
 
 	fzfArgs := []string{
 		"--height=40%",
 		"--reverse",
-		"--header=搜索所有服务 (Esc 返回)",
+		"--header=搜索所有服务 (支持序号或名称搜索, Esc 返回)",
 	}
 
 	opts, err := fzf.ParseOptions(true, fzfArgs)
@@ -1254,9 +1256,17 @@ func (app *App) runServiceSearchFzf(allServices []*commands.Service) string {
 	select {
 	case result := <-outputChan:
 		if result != "" {
+			// 解析逻辑：
+			// 1. 先按 ":" 分割，拿到左半部分 "1. admin-api"
+			// 2. 再找到第一个 ". " 之后的部分
 			parts := strings.Split(result, ":")
 			if len(parts) > 0 {
-				return strings.TrimSpace(parts[0])
+				left := strings.TrimSpace(parts[0])
+				dotIdx := strings.Index(left, ". ")
+				if dotIdx != -1 {
+					return strings.TrimSpace(left[dotIdx+2:])
+				}
+				return left
 			}
 		}
 	case <-time.After(50 * time.Millisecond):
