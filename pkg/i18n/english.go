@@ -237,6 +237,9 @@ type TranslationSet struct {
 	InputImageToRun         string
 	InputImageToDelete      string
 	DetectingShell          string
+	PullingImage            string
+	PromptSearchKeyword     string
+	SearchingRemoteImage    string
 }
 
 func englishSet() TranslationSet {
@@ -478,9 +481,12 @@ func englishSet() TranslationSet {
 		MenuRunImage:            "Run Image",
 		MenuDeleteImage:         "Delete Image",
 		DeleteAllImages:         "Prune All Unused Images",
-		InputImageToRun:         "Enter image index or name to RUN: ",
+		InputImageToRun:         "Enter the menu index: ",
 		InputImageToDelete:      "Enter image index or name to DELETE: ",
 		InputContainerName:      "Enter run name: ",
 		DetectingShell:          "Detecting available shell...",
+		PullingImage:            "Pulling image: %s...",
+		PromptSearchKeyword:     "Please enter search keyword: ",
+		SearchingRemoteImage:    "Searching Docker Hub...",
 	}
 }

@@ -53,9 +53,7 @@ func RunImageMenu(
 		fmt.Printf("\n%s%s%s\n", utils.ColorGreen, tr.MenuFunction, utils.ColorNC)
 		fmt.Println("------------------------------")
 		fmt.Printf("  1. %s\n", tr.PullImage)
-		fmt.Printf("  2. %s\n", tr.MenuRunImage)
-		fmt.Printf("  3. %s\n", tr.MenuDeleteImage)
-		fmt.Printf("  4. %s\n", tr.DeleteAllImages)
+		fmt.Printf("  2. %s\n", tr.DeleteAllImages)
 		fmt.Println("------------------------------")
 		fmt.Printf("  s. %s\n", tr.SearchImageTitle)
 		fmt.Println("------------------------------")
@@ -80,7 +78,7 @@ func RunImageMenu(
 				var idx int
 				_, _ = fmt.Sscanf(selected, "%d", &idx)
 				if idx > 0 && idx <= len(images) {
-					directRunImage(images[idx-1], tr, readInput, runInteractiveSubprocess)
+					handleImageAction(images[idx-1], tr, readInput, runInteractiveSubprocess, runFzfSelect, parseFzfResult)
 				}
 			}
 			continue
@@ -88,32 +86,36 @@ func RunImageMenu(
 
 		switch input {
 		case "1":
-			name := readInput(tr.PullImage + ": ")
-			name = strings.TrimSpace(name)
-			if name != "" {
-				fmt.Printf("%s%s %s...%s\n", utils.ColorYellow, tr.PullImage, name, utils.ColorNC)
-				cmd := exec.Command("docker", "pull", name)
-				_ = runInteractiveSubprocess(cmd)
+			keyword := readInput(tr.PromptSearchKeyword)
+			keyword = strings.TrimSpace(keyword)
+			if keyword == "" {
+				continue
 			}
-		case "2": // Direct Run
-			var idx int
-			_, _ = fmt.Sscanf(input, "%d", &idx) // input is already the index since it was read at top
-			if idx > 0 && idx <= len(images) {
-				directRunImage(images[idx-1], tr, readInput, runInteractiveSubprocess)
-			} else {
-				fmt.Printf("%s%s%s\n", utils.ColorRed, tr.InvalidIndex, utils.ColorNC)
+
+			fmt.Printf("%s%s%s\n", utils.ColorYellow, tr.SearchingRemoteImage, utils.ColorNC)
+			searchCmd := exec.Command("docker", "search", "--format", "{{.Name}}: {{.Description}} ({{.StarCount}} stars)", "--limit", "25", keyword)
+			output, err := searchCmd.Output()
+			if err != nil {
+				fmt.Printf("%s%s: %v%s\n", utils.ColorRed, tr.ErrorTitle, err, utils.ColorNC)
 				time.Sleep(1 * time.Second)
+				continue
 			}
-		case "3": // Direct Delete
-			var idx int
-			_, _ = fmt.Sscanf(input, "%d", &idx)
-			if idx > 0 && idx <= len(images) {
-				directDeleteImage(images[idx-1], tr, readInput)
-			} else {
-				fmt.Printf("%s%s%s\n", utils.ColorRed, tr.InvalidIndex, utils.ColorNC)
+
+			lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+			if len(lines) == 0 || (len(lines) == 1 && lines[0] == "") {
+				fmt.Printf("%s%s%s\n", utils.ColorRed, tr.NothingToDisplay, utils.ColorNC)
 				time.Sleep(1 * time.Second)
+				continue
 			}
-		case "4":
+
+			result := runFzfSelect(tr.PullImage, lines)
+			selected := parseFzfResult(result)
+			if selected != "" {
+				fmt.Printf("%s%s%s\n", utils.ColorYellow, fmt.Sprintf(tr.PullingImage, selected), utils.ColorNC)
+				pullCmd := exec.Command("docker", "pull", selected)
+				_ = runInteractiveSubprocess(pullCmd)
+			}
+		case "2":
 			fmt.Printf("%s%s%s", utils.ColorRed, tr.DangerDeleteAllImages, utils.ColorNC)
 			confirm := readInput("")
 			if strings.ToLower(strings.TrimSpace(confirm)) == "y" {
@@ -126,12 +128,33 @@ func RunImageMenu(
 			var idx int
 			n, _ := fmt.Sscanf(input, "%d", &idx)
 			if n > 0 && idx > 0 && idx <= len(images) {
-				// Default behavior for index: show action menu? No, user wants fast.
-				// But we don't know if they want to run or delete.
-				// Given they mostly run, let's show the direct action choice or just run.
-				// Actually, the user asked to split 2 and 3, so we follow that.
+				handleImageAction(images[idx-1], tr, readInput, runInteractiveSubprocess, runFzfSelect, parseFzfResult)
 			}
 		}
+	}
+}
+
+func handleImageAction(
+	img *commands.Image,
+	tr *i18n.TranslationSet,
+	readInput func(string) string,
+	runInteractiveSubprocess func(*exec.Cmd) error,
+	runFzfSelect func(string, []string) string,
+	parseFzfResult func(string) string,
+) {
+	actionLines := []string{
+		"1: " + tr.MenuRunImage,
+		"2: " + tr.MenuDeleteImage,
+	}
+
+	header := fmt.Sprintf(tr.SelectActionForImage, img.Name)
+	result := runFzfSelect(header, actionLines)
+	actionID := parseFzfResult(result)
+
+	if actionID == "1" {
+		directRunImage(img, tr, readInput, runInteractiveSubprocess)
+	} else if actionID == "2" {
+		directDeleteImage(img, tr, readInput)
 	}
 }
 

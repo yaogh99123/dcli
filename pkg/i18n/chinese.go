@@ -230,9 +230,12 @@ func chineseSet() TranslationSet {
 		MenuRunImage:            "运行镜像",
 		MenuDeleteImage:         "删除镜像",
 		DeleteAllImages:         "清理所有未使用镜像",
-		InputImageToRun:         "请输入要运行的镜像索引或名称: ",
+		InputImageToRun:         "请输入菜单索引: ",
 		InputImageToDelete:      "请输入要删除的镜像索引或名称: ",
 		InputContainerName:      "请输入运行名称: ",
 		DetectingShell:          "正在检测可用 Shell...",
+		PullingImage:            "正在拉取镜像: %s...",
+		PromptSearchKeyword:     "请输入搜索关键词: ",
+		SearchingRemoteImage:    "正在从 Docker Hub 搜索...",
 	}
 }
