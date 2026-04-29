@@ -627,14 +627,21 @@ func (app *App) runMenuSearchFzf() string {
 
 func (app *App) runServiceSearchFzf(allServices []*commands.Service) string {
 	var lines []string
+	header := fmt.Sprintf("%-4s %-25s %s", "NO.", "SERVICE", "STATUS")
+
 	for i, s := range allServices {
 		status := app.Tr.StatusStopped
 		if s.Container != nil && s.Container.Container.State == "running" {
 			status = app.Tr.StatusRunning
 		}
-		lines = append(lines, fmt.Sprintf("%d. %s: %s (%s)", i+1, s.Name, app.Tr.ServicesTitle, status))
+		// Format with alignment. The ". " and ": " are important for parseFzfResult
+		// Combine index and dot to keep them together (e.g., "1.")
+		idxStr := fmt.Sprintf("%d.", i+1)
+		line := fmt.Sprintf("%-5s %-25s : %s (%s)", idxStr, s.Name, app.Tr.ServicesTitle, status)
+		lines = append(lines, line)
 	}
 
-	result := app.runFzfSelect(app.Tr.SearchServiceTitle, lines)
+	fzfHeader := fmt.Sprintf("%s\n%s", app.Tr.SearchServiceTitle, header)
+	result := app.runFzfSelect(fzfHeader, lines)
 	return app.parseFzfResult(result)
 }
