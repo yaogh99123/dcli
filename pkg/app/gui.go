@@ -132,6 +132,17 @@ func (app *App) runSubprocessWithQuitKey(cmd *exec.Cmd) error {
 		}
 	}()
 
+	kill := func() {
+		// 收到 exit 命令，如果子进程还在跑，就杀掉它
+		_ = cmd.Process.Signal(os.Interrupt)
+		fmt.Printf("\n%s%s%s\n", utils.ColorBlue, app.Tr.ReturningToMainMenu, utils.ColorNC)
+		select {
+		case <-done:
+		case <-time.After(500 * time.Millisecond):
+			_ = app.DockerCommand.OSCommand.Kill(cmd)
+		}
+	}
+
 	select {
 	case err := <-done:
 		if err != nil {
@@ -145,14 +156,7 @@ func (app *App) runSubprocessWithQuitKey(cmd *exec.Cmd) error {
 		fmt.Printf("\n%s%s%s\n", utils.ColorYellow, app.Tr.PressExitToReturnTip, utils.ColorNC)
 		goto WAIT_LOOP
 	case <-quitChan:
-		// 收到 exit 命令，如果子进程还在跑，就杀掉它
-		_ = cmd.Process.Signal(os.Interrupt)
-		fmt.Printf("\n%s%s%s\n", utils.ColorBlue, app.Tr.ReturningToMainMenu, utils.ColorNC)
-		select {
-		case <-done:
-		case <-time.After(500 * time.Millisecond):
-			_ = cmd.Process.Kill()
-		}
+		kill()
 		return nil
 	}
 
@@ -163,6 +167,7 @@ WAIT_LOOP:
 		case <-sigChan:
 			fmt.Printf("\n%s%s%s\n", utils.ColorYellow, app.Tr.MustTypeExitToQuit, utils.ColorNC)
 		case <-quitChan:
+			kill()
 			return nil
 		case <-done:
 			// 这种情况下进程已经通过 done 退出了，不需要再处理，只需处理 quitChan
@@ -200,7 +205,7 @@ func (app *App) runInteractiveSubprocess(cmd *exec.Cmd) error {
 		select {
 		case <-done:
 		case <-time.After(1 * time.Second):
-			_ = cmd.Process.Kill()
+			_ = app.DockerCommand.OSCommand.Kill(cmd)
 		}
 		return nil
 	}
