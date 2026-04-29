@@ -93,7 +93,8 @@ func RunImageMenu(
 			}
 
 			fmt.Printf("%s%s%s\n", utils.ColorYellow, tr.SearchingRemoteImage, utils.ColorNC)
-			searchCmd := exec.Command("docker", "search", "--format", "{{.Name}}: {{.Description}} ({{.StarCount}} stars)", "--limit", "25", keyword)
+			// Using | as a temporary separator for easier parsing in Go
+			searchCmd := exec.Command("docker", "search", "--format", "{{.Name}}|{{.StarCount}}|{{.IsOfficial}}|{{.Description}}", "--limit", "25", keyword)
 			output, err := searchCmd.Output()
 			if err != nil {
 				fmt.Printf("%s%s: %v%s\n", utils.ColorRed, tr.ErrorTitle, err, utils.ColorNC)
@@ -101,8 +102,29 @@ func RunImageMenu(
 				continue
 			}
 
-			lines := strings.Split(strings.TrimSpace(string(output)), "\n")
-			if len(lines) == 0 || (len(lines) == 1 && lines[0] == "") {
+			rawLines := strings.Split(strings.TrimSpace(string(output)), "\n")
+			var lines []string
+			for _, line := range rawLines {
+				parts := strings.Split(line, "|")
+				if len(parts) < 4 {
+					continue
+				}
+				name := parts[0]
+				stars := parts[1]
+				official := ""
+				if parts[2] == "[OK]" || parts[2] == "ok" || parts[2] == "true" {
+					official = "[OK]"
+				}
+				desc := parts[3]
+				if len(desc) > 60 {
+					desc = desc[:57] + "..."
+				}
+				// Format into aligned columns.
+				formatted := fmt.Sprintf("%-35s : %-8s %-8s %s", name, stars, official, desc)
+				lines = append(lines, formatted)
+			}
+
+			if len(lines) == 0 {
 				fmt.Printf("%s%s%s\n", utils.ColorRed, tr.NothingToDisplay, utils.ColorNC)
 				time.Sleep(1 * time.Second)
 				continue
