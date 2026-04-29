@@ -104,6 +104,8 @@ func RunImageMenu(
 
 			rawLines := strings.Split(strings.TrimSpace(string(output)), "\n")
 			var lines []string
+			columnHeader := fmt.Sprintf("%-35s   %-8s %-8s %s", "NAME", "STARS", "OFFICIAL", "DESCRIPTION")
+
 			for _, line := range rawLines {
 				parts := strings.Split(line, "|")
 				if len(parts) < 4 {
@@ -130,7 +132,9 @@ func RunImageMenu(
 				continue
 			}
 
-			result := runFzfSelect(tr.PullImage, lines)
+			// Combine PullImage title and column headers for a fixed FZF header
+			fzfHeader := fmt.Sprintf("%s\n%s", tr.PullImage, columnHeader)
+			result := runFzfSelect(fzfHeader, lines)
 			selected := parseFzfResult(result)
 			if selected != "" {
 				fmt.Printf("%s%s%s\n", utils.ColorYellow, fmt.Sprintf(tr.PullingImage, selected), utils.ColorNC)
