@@ -4,9 +4,9 @@
   <p><strong>The Lazier Way to Manage Everything Docker</strong></p>
   <p>
     <a href="https://golang.org/"><img src="https://img.shields.io/badge/Language-Go-blue.svg" alt="Language" /></a>
-    <a href="https://github.com/yaogh99123/dcli/releases"><img src="https://img.shields.io/github/v/release/yaogh99123/dcli" alt="Release" /></a>
-    <a href="https://goreportcard.com/report/github.com/yaogh99123/dcli"><img src="https://goreportcard.com/badge/github.com/yaogh99123/dcli" alt="Go Report Card" /></a>
-    <a href="LICENSE"><img src="https://img.shields.io/github/license/yaogh99123/dcli" alt="License" /></a>
+    <a href="https://github.com/Timo-In/dcli/releases"><img src="https://img.shields.io/github/v/release/Timo-In/dcli" alt="Release" /></a>
+    <a href="https://goreportcard.com/report/github.com/Timo-In/dcli"><img src="https://goreportcard.com/badge/github.com/Timo-In/dcli" alt="Go Report Card" /></a>
+    <a href="LICENSE"><img src="https://img.shields.io/github/license/Timo-In/dcli" alt="License" /></a>
   </p>
   <p>An efficient, intuitive, and "lazy" CLI manager for Docker and Docker-Compose.</p>
 </div>
@@ -44,11 +44,11 @@ It automatically detects your project environment, merges fragmented Compose fil
 
 **Via Go:**
 ```bash
-go install github.com/yaogh99123/dcli@latest
+go install github.com/Timo-In/dcli@latest
 ```
 
 **Or download binary from the release page:**
-[GitHub Releases](https://github.com/yaogh99123/dcli/releases)
+[GitHub Releases](https://github.com/Timo-In/dcli/releases)
 
 ---
 
@@ -96,8 +96,8 @@ Once inside `dcli`, you can perform operations using the following shortcuts:
 
 Configuration files are typically located at:
 
-- macOS: `~/Library/Application Support/yaogh99123/dcli/config.yml`
-- Linux: `~/.config/yaogh99123/dcli/config.yml`
+- macOS: `~/Library/Application Support/Timo-In/dcli/config.yml`
+- Linux: `~/.config/Timo-In/dcli/config.yml`
 
 You can view your current default configuration and make adjustments by running `dcli -c`.
 
